@@ -450,22 +450,55 @@ app.post('/api/add_activity', function(req, res){
     };
 
     var newActivityRef = databaseref.child('schools/' + school_identifier + '/activities').push(activity);
-    var activity_id = newActivityRef.key;
+    var auid = newActivityRef.key;
 
-    newActivityRef.child('activity_id').set(activity_id);
+    newActivityRef.child('activity_id').set(auid);
 
     databaseref.child('schools/' + school_identifier + '/users/' + host + '/activities').transaction(function(snapshot){
         if(snapshot){
-            snapshot = snapshot.concat([activity_id]);
+            snapshot = snapshot.concat([auid]);
         }else{
-            snapshot = [activity_id];
+            snapshot = [auid];
         }
 
         return snapshot;
     });
 
+    if (host_group != "") {
+      databaseref.child('schools/' + school_identifier + '/groups/' + host_group + '/activities').transaction(function(snapshot){
+          if(snapshot){
+              snapshot = snapshot.concat([auid]);
+          }else{
+              snapshot = [auid];
+          }
+
+          return snapshot;
+      });
+    }
+
+    console.log('invited_users: ' + invited_users);
+    console.log('invited_groups: ' + invited_groups);
+
+    invited_users.forEach( function(uid) {
+      inviteUser(uid, school_identifier, auid);
+    });
+
+    invited_groups.forEach( function(guid) {
+      inviteUser(guid, school_identifier, auid);
+    });
+    
     res.status(REQUESTSUCCESSFUL).send('activity posted');
 });
+
+//***************INVITE HANDLERS*************//
+
+function inviteUser(uid, school_identifier, auid) {
+  console.log('Invite user: ' + uid);
+}
+
+function inviteGroup(guid, school_identifier, auid) {
+  console.log('Invite group: ' + guid);
+}
 
 //.../api/min_version?platform=android
 //0001 - requires read rights
