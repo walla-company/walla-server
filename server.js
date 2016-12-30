@@ -27,8 +27,8 @@ const LEVEL5 = 16; //verify
 
 const MAXFLAGS = 2;
 
-const FLAGREPORTEMAIL = 'mafuvadzeanesu@gmail.com' //'hollawalladuke@gmail.com';
-const WEBSITE = 'https://wallaserver.herokuapp.com';
+const FLAGREPORTEMAIL = 'hollawalladuke@gmail.com' //'hollawalladuke@gmail.com';
+const WEBSITE = 'https://walla-server.herokuapp.com';
 
 
 //***************INITIALIZATION*************//
@@ -110,16 +110,18 @@ function authenticateToken(token){
 //***************LISTENERS*************//
 
 //listener for allowed domains
-const ad = databaseref.child('allowedDomains');
+const ad = databaseref.child('app_settings/allowed_domains');
 ad.on('value', snapshot => domains = snapshot.val());
 
 //listener for minimum version
-const mv = databaseref.child('minimumVersion');
+const mv = databaseref.child('app_settings/min_version');
 mv.on('value', snapshot => minversion = snapshot.val());
 
-const at = databaseref.child('api');
+const at = databaseref.child('app_settings/api_keys');
 at.on('value', snapshot => {
     var auth = snapshot.val();
+
+    console.log('auth: ' + auth);
 
     readpriv = [];
     writepriv = [];
@@ -142,8 +144,139 @@ evl.on('value', snapshot => emailverificationtemplate = snapshot.val().template)
 const akt = databaseref.child('templates').child('apikey');
 akt.on('value', snapshot => apikeytemplate = snapshot.val().template);
 
+//***************Admin Methods*************//
 
-//***************GET REQUEST HANDLERS*************//
+app.post('/api/request_token', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    var owner = req.query.owner;
+    var email = req.query.email;
+
+    if(!owner){
+        res.status(REQUESTBAD).send("invalid parameters: no owner");
+        return;
+    }
+
+    if(!email){
+        res.status(REQUESTBAD).send("invalid parameters: no email");
+        return;
+    }
+
+    var r = req.query.r;
+    var w = req.query.w;
+    var d = req.query.d;
+    var a = req.query.a;
+    var v = req.query.v;
+
+    if(!r) r = 0;
+    if(!w) w = 0;
+    if(!d) d = 0;
+    if(!a) a = 0;
+    if(!v) v = 0;
+
+    var auth = 0;
+    auth = r == 0 ? auth : auth | LEVEL1;
+    auth = w == 0 ? auth : auth | LEVEL2;
+    auth = d == 0 ? auth : auth | LEVEL3;
+    auth = a == 0 ? auth : auth | LEVEL4;
+    auth = v == 0 ? auth : auth | LEVEL5;
+
+    incrementTokenCalls(token);
+
+    var token = TokenGenerator.generate();
+
+    var authobj = {};
+    authobj[token] = {owner: owner,
+                      email: email,
+                      auth: auth,
+                      calls: 0,
+                     };
+
+    databaseref.child('app_settings/api_keys').update(authobj);
+
+    var permissions = [];
+    if(auth & LEVEL1) permissions.push('read');
+    if(auth & LEVEL2) permissions.push('write');
+    if(auth & LEVEL3) permissions.push('delete');
+    if(auth & LEVEL4) permissions.push('admin');
+    if(auth & LEVEL5) permissions.push('verify');
+
+
+    sendTokenViaEmail(token, email, owner, permissions);
+    res.status(REQUESTSUCCESSFUL).send("email sent");
+
+});
+
+app.post('/api/add_school', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    var name = req.query.name;
+    var full_name = req.query.full_name;
+    var domain = req.query.domain;
+    var school_identifier = req.query.school_identifier;
+
+    if (!name) {
+      res.status(REQUESTBAD).send("invalid parameters: no name");
+      return;
+    }
+
+    if (!full_name) {
+      res.status(REQUESTBAD).send("invalid parameters: no full name");
+      return;
+    }
+
+    if (!domain) {
+      res.status(REQUESTBAD).send("invalid parameters: no domain");
+      return;
+    }
+
+    if (!school_identifier) {
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+    }
+
+    databaseref.child('schools/' + school_identifier + '/name').once('value').then(function(snapshot){
+            if (!snapshot.exists()) {
+
+              var school = {
+                name: name,
+                full_name: full_name,
+                domain: domain,
+                school_identifier: school_identifier
+              };
+
+              databaseref.child('schools/' + school_identifier).set(school);
+
+              var info = {
+                full_name: full_name,
+                domain: domain
+              };
+
+              databaseref.child('app_settings/allowed_domains/' + school_identifier).set(info);
+
+              res.status(REQUESTSUCCESSFUL).send('school ' + full_name + 'added');
+            }
+            else {
+              res.status(REQUESTDUPLICATE).send("invalid parameters: school exists");
+              return;
+            }
+
+        }).catch(error => console.log(error));
+});
+
+//***************DOMAIN HANDLERS*************//
 
 //0001 - requires read rights
 app.get('/api/domains', function(req, res){
@@ -157,6 +290,181 @@ app.get('/api/domains', function(req, res){
 
     res.send(domains)
 
+});
+
+app.get('/api/is_domain_allowed', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.read && !auth.admin){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    var domain = req.query.domain;
+
+    if (!domain) {
+      res.status(REQUESTBAD).send("invalid parameters: no domain");
+    }
+
+    if (domainAllowed(domain)) {
+      res.send({'allowed': true});
+      return;
+    }
+
+    res.send({'allowed': false});
+
+});
+
+//***************ACTIVITIES HANDLERS*************//
+
+app.post('/api/add_activity', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.write){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
+    var title = req.query.title;
+    var start_time = req.query.start_time;
+    var end_time = req.query.end_time;
+    var location_name = req.query.location_name;
+    var location_address = req.query.location_address;
+    var location_lat = req.query.location_lat;
+    var location_long = req.query.location_long;
+    var activity_public = req.query.public;
+    var interests = req.query.interest;
+    var host = req.query.host;
+    var details = req.query.details;
+    var host_group = req.query.host_group;
+    var invited_users = req.query.invited_user;
+    var invited_groups = req.query.invited_group;
+    var can_others_invite = req.query.can_others_invite;
+    
+    if (!school_identifier) {
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+    }
+
+    if (!title) {
+      res.status(REQUESTBAD).send("invalid parameters: no title");
+      return;
+    }
+
+    if (!start_time) {
+      res.status(REQUESTBAD).send("invalid parameters: no start time");
+      return;
+    }
+
+    if (!end_time) {
+      res.status(REQUESTBAD).send("invalid parameters: no end time");
+      return;
+    }
+
+    if (!location_name) {
+      res.status(REQUESTBAD).send("invalid parameters: no location name");
+      return;
+    }
+
+    if (!location_address) {
+      res.status(REQUESTBAD).send("invalid parameters: no location address");
+      return;
+    }
+
+    if (!location_lat) {
+      res.status(REQUESTBAD).send("invalid parameters: no location lat");
+      return;
+    }
+
+    if (!location_long) {
+      res.status(REQUESTBAD).send("invalid parameters: no location long");
+      return;
+    }
+
+    if (!activity_public) {
+      res.status(REQUESTBAD).send("invalid parameters: no activity public");
+      return;
+    }
+
+    if (!interests) {
+      res.status(REQUESTBAD).send("invalid parameters: no interests");
+      return;
+    }
+
+    if (!host) {
+      res.status(REQUESTBAD).send("invalid parameters: no host");
+      return;
+    }
+
+    if (!can_others_invite) {
+      can_others_invite = true;
+    }
+
+    if (!details) {
+      details = "";
+    }
+
+    if (!host_group) {
+      host_group = "";
+    }
+
+    if (!invited_users) {
+      invited_users = [];
+    }
+
+    if (!invited_groups) {
+      invited_groups = [];
+    }
+
+    var activity = {
+      title: title,
+      start_time: start_time * 1.0,
+      end_time: end_time * 1.0,
+      location: {
+        name: location_name,
+        address: location_address,
+        lat: location_lat * 1.0,
+        long: location_long * 1.0
+      },
+      public: activity_public == "true",
+      can_others_invite: can_others_invite,
+      interests: interests,
+      host: host,
+      details: details,
+      host_group: host_group,
+      invited_users: invited_users,
+      invited_groups: invited_groups,
+      going: {
+        count: 1,
+        users: [host]
+      },
+      interested: {
+        count: 0,
+        users: []
+      }
+    };
+
+    var newActivityRef = databaseref.child('schools/' + school_identifier + '/activities').push(activity);
+    var activity_id = newActivityRef.key;
+
+    newActivityRef.child('activity_id').set(activity_id);
+
+    databaseref.child('schools/' + school_identifier + '/users/' + host + '/activities').transaction(function(snapshot){
+        if(snapshot){
+            snapshot = snapshot.concat([activity_id]);
+        }else{
+            snapshot = [activity_id];
+        }
+
+        return snapshot;
+    });
+
+    res.status(REQUESTSUCCESSFUL).send('activity posted');
 });
 
 //.../api/min_version?platform=android
@@ -180,9 +488,9 @@ app.get('/api/min_version', function(req, res){
     incrementTokenCalls(token);
 
     switch(platform.toLowerCase()){
-        case 'android': res.status(REQUESTSUCCESSFUL).send({'min_version': minversion.Android});
+        case 'android': res.status(REQUESTSUCCESSFUL).send({'min_version': minversion.android});
             break;
-        case 'ios': res.status(REQUESTSUCCESSFUL).send({'min_version': minversion.iOS});
+        case 'ios': res.status(REQUESTSUCCESSFUL).send({'min_version': minversion.ios});
             break;
         default: res.status(REQUESTBAD).send("invalid parameters");
     }
@@ -321,73 +629,6 @@ app.get('/api/user_info', function(req, res){
 
 });
 
-app.post('/api/request_token', function(req, res){
-    var token = req.query.token;
-
-    var auth = authenticateToken(token);
-    if(!auth.admin){
-         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
-        return;
-    }
-
-    var owner = req.query.owner;
-    var email = req.query.email;
-
-    if(!owner){
-        res.status(REQUESTBAD).send("invalid parameters: no owner");
-        return;
-    }
-
-    if(!email){
-        res.status(REQUESTBAD).send("invalid parameters: no email");
-        return;
-    }
-
-    var r = req.query.r;
-    var w = req.query.w;
-    var d = req.query.d;
-    var a = req.query.a;
-    var v = req.query.v;
-
-    if(!r) r = 0;
-    if(!w) w = 0;
-    if(!d) d = 0;
-    if(!a) a = 0;
-    if(!v) v = 0;
-
-    var auth = 0;
-    auth = r == 0 ? auth : auth | LEVEL1;
-    auth = w == 0 ? auth : auth | LEVEL2;
-    auth = d == 0 ? auth : auth | LEVEL3;
-    auth = a == 0 ? auth : auth | LEVEL4;
-    auth = v == 0 ? auth : auth | LEVEL5;
-
-    incrementTokenCalls(token);
-
-    var token = TokenGenerator.generate();
-
-    var authobj = {};
-    authobj[token] = {owner: owner,
-                      email: email,
-                      auth: auth,
-                      calls: 0,
-                     };
-
-    databaseref.child('api').update(authobj);
-
-    var permissions = [];
-    if(auth & LEVEL1) permissions.push('read');
-    if(auth & LEVEL2) permissions.push('write');
-    if(auth & LEVEL3) permissions.push('delete');
-    if(auth & LEVEL4) permissions.push('admin');
-    if(auth & LEVEL5) permissions.push('verify');
-
-
-    sendTokenViaEmail(token, email, owner, permissions);
-    res.status(REQUESTSUCCESSFUL).send("email sent");
-
-});
-
 app.get('/api/is_attending', function(req, res){
     var token = req.query.token;
 
@@ -504,7 +745,7 @@ app.get('/api/verify', function(req, res){
         return;
     }
 
-      var school = req.query.domain;
+    var school = req.query.domain;
     if(!school){
         res.status(REQUESTBAD).send("invalid parameters: no domain");
         return;
@@ -533,13 +774,11 @@ app.get('/welcome', function(req, res){
     });
 });
 
-
-
 //***************HELPER FUNCTIONS*************//
 
 function domainAllowed(domain){
     for(key in domains){
-        if(key == domain) return true;
+        if(domains[key]['domain'] == domain) return true;
     }
 
     return false;
@@ -694,10 +933,11 @@ function getUserInfo(uid, domain){
 }
 
 function incrementTokenCalls(token){
-    databaseref.child('api/' + token).child('calls').transaction(function(snapshot) {
-            if (snapshot) {
-                snapshot = snapshot + 1;
-            }
+  console.log('incrementTokenCalls: ' + token);
+    databaseref.child('app_settings/api_keys/' + token).child('calls').transaction(function(snapshot) {
+
+            snapshot = snapshot + 1;
+
             return snapshot;
     });
 }
@@ -776,7 +1016,7 @@ function sendUsersAttending(att, attendees, school, res){
 
     databaseref.child(school).child('users/' + key).once('value').then(function(snapshot){
         attendees.push(snapshot.val());
-        
+
         if(Object.keys(att).length == 0){
              res.status(REQUESTSUCCESSFUL).send(attendees);
         }else{
