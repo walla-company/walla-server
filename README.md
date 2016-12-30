@@ -1,14 +1,17 @@
 Walla API Documentation
 ==============
 
-### Params Definitions
+
+## Params Definitions
 - **token** : Caller's API authentication key
 
 - **platform** : Operating platform the caller is requesting information on (e.g. ios, android)
 
-- **domain** : The school or domain the user is requesting information on (e.g. sandiego-\*-edu, duke-\*-edu)
+- **domain** : The school or domain the user is requesting information on (e.g. sandiego.edu, duke.edu)
 
-- **event** : The unique identifier for an event (e.g. -KVgTb7KDUYnsAho_bcK)
+- **school_identifier** : The school or domain the user is requesting information on (e.g. sandiego, duke)
+
+- **auid** : The unique identifier for an activity (e.g. -KVgTb7KDUYnsAho_bcK)
 
 - **uid** : The unique identifier for a user (e.g. 4jAEwvyKAdMNJxS5LEG2ynC9SaY2)
 
@@ -29,8 +32,7 @@ Walla API Documentation
 - **hash** : Hash value unique to a user that is generated to validate email verification
 
 
-
-### Permission definitions
+## Permission definitions
 - **R** : Requires the auth token to have read access
 
 - **W** : Requires the auth token to have write access
@@ -43,6 +45,54 @@ Walla API Documentation
 
 
 
+## Admin Methods
+
+### Request an API token
+
+- **Permissions** : A
+
+- **Method** : POST
+
+- **URL Params** : [token, owner, email]
+
+- **Sample URL** : /api/request_token?token=123456789&owner=John+Smith&email=johnsmith@gmail.com
+
+### Add School to Database
+
+- **Permissions** : A
+
+- **Method** : POST
+
+- **URL Params** : [token, name, full_name, domain, school_identifier]
+
+- **Sample URL** : /api/add_school?token=123456789&name=Duke&full_name=Duke+University&domain=duke.edu&school_identifier=duke
+
+
+## Domain Methods
+
+### Retrieve Allowed Domains
+
+- **Permissions** : A || R
+
+- **Method** : GET
+
+- **URL Params** : [token]
+
+- **Sample URL** : /api/domains?token=123456789
+
+### Check if Domain is Allowed
+
+- **Permissions** : A || R
+
+- **Method** : GET
+
+- **URL Params** : [token, domain]
+
+- **Sample URL** : /api/is_domain_allowed?token=123456789&domain=duke.edu
+
+## Activity Methods
+
+## OLD OLD
 
 ## Get the domains supported by Walla
 

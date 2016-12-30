@@ -345,7 +345,7 @@ app.post('/api/add_activity', function(req, res){
     var invited_users = req.query.invited_user;
     var invited_groups = req.query.invited_group;
     var can_others_invite = req.query.can_others_invite;
-    
+
     if (!school_identifier) {
       res.status(REQUESTBAD).send("invalid parameters: no school identifier");
       return;
