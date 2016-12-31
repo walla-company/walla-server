@@ -389,7 +389,7 @@ app.post('/api/add_activity', function(req, res){
       return;
     }
 
-    if (!activity_public) {
+    if (activity_public == null) {
       res.status(REQUESTBAD).send("invalid parameters: no activity public");
       return;
     }
@@ -404,7 +404,7 @@ app.post('/api/add_activity', function(req, res){
       return;
     }
 
-    if (!can_others_invite) {
+    if (can_others_invite == null) {
       can_others_invite = true;
     }
 
@@ -514,6 +514,21 @@ app.post('/api/interested', function(req, res){
     var school_identifier = req.body['school_identifier'];
     var auid = req.body['auid'];
 
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    if(!auid){
+        res.status(REQUESTBAD).send("invalid parameters: no auid");
+        return;
+    }
+
     databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/replies/' + uid).set("interested");
 
     res.status(REQUESTSUCCESSFUL).send('interested changed');
@@ -534,6 +549,21 @@ app.post('/api/going', function(req, res){
   var uid = req.body['uid'];
   var school_identifier = req.body['school_identifier'];
   var auid = req.body['auid'];
+
+  if(!uid){
+      res.status(REQUESTBAD).send("invalid parameters: no uid");
+      return;
+  }
+
+  if(!school_identifier){
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+  }
+
+  if(!auid){
+      res.status(REQUESTBAD).send("invalid parameters: no auid");
+      return;
+  }
 
   databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/replies/' + uid).set("going");
 
@@ -556,6 +586,21 @@ app.post('/api/remove_reply', function(req, res){
   var school_identifier = req.body['school_identifier'];
   var auid = req.body['auid'];
 
+  if(!uid){
+      res.status(REQUESTBAD).send("invalid parameters: no uid");
+      return;
+  }
+
+  if(!school_identifier){
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+  }
+
+  if(!auid){
+      res.status(REQUESTBAD).send("invalid parameters: no auid");
+      return;
+  }
+
   databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/replies/' + uid).remove();
 
   res.status(REQUESTSUCCESSFUL).send('interested changed');
@@ -576,6 +621,27 @@ app.post('/api/get_activity', function(req, res){
     var school_identifier = req.query.school_identifier;
     var auid = req.query.auid;
 
+    if(!auid){
+        res.status(REQUESTBAD).send("invalid parameters: no auid");
+        return;
+    }
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    databaseref.child('schools/' + school_identifier + '/activities/' + auid).once('value').then(function(snapshot){
+            if(snapshot.val())
+                res.status(REQUESTSUCCESSFUL).send(snapshot.val());
+            else
+                res.status(REQUESTSUCCESSFUL).send({});
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
 });
 
 app.post('/api/get_activities', function(req, res){
@@ -591,7 +657,54 @@ app.post('/api/get_activities', function(req, res){
 
     var school_identifier = req.query.school_identifier;
 
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    var current_time = new Date().getTime() / 1000;
+
+    incrementTokenCalls(token);
+
+    databaseref.child('schools/' + school_identifier + '/activities/').orderByChild('start_time').startAt(current_time)
+        .once('value').then(function(snapshot){
+            if(snapshot.val())
+                sortAndSendActivities(snapshot.val(), res);
+            else
+                res.status(REQUESTSUCCESSFUL).send({});
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
 });
+
+function sortAndSendActivities(activities, res) {
+
+}
+
+function sendActivities(act, list, ref, res){
+    var key = Object.keys(act)[0];
+    if(!key){
+        res.status(REQUESTBAD).send('could not retrieve data');
+        return;
+    }
+
+    delete act[key];
+
+    ref.child('activities').child(key).once('value').then(function(snapshot){
+        list.push(snapshot.val());
+
+        if(Object.keys(act).length == 0){
+             res.status(REQUESTSUCCESSFUL).send(list);
+        }else{
+            sendActivities(act, list, ref, res);
+        }
+     }).catch(function(error){
+        console.log(error)
+     })
+}
 
 
 //***************INVITE HANDLERS*************//
@@ -1141,7 +1254,6 @@ function sendVerificationEmail(email, uid, domain, res){
     }
 }
 
-
 function sendUsersAttending(att, attendees, school, res){
     var key = Object.keys(att)[0];
     if(!key){
@@ -1158,28 +1270,6 @@ function sendUsersAttending(att, attendees, school, res){
              res.status(REQUESTSUCCESSFUL).send(attendees);
         }else{
             sendUsersAttending(att, attendees, school, res);
-        }
-     }).catch(function(error){
-        console.log(error)
-     })
-}
-
-function sendActivities(act, list, ref, res){
-    var key = Object.keys(act)[0];
-    if(!key){
-        res.status(REQUESTBAD).send('could not retrieve data');
-        return;
-    }
-
-    delete act[key];
-
-    ref.child('activities').child(key).once('value').then(function(snapshot){
-        list.push(snapshot.val());
-
-        if(Object.keys(act).length == 0){
-             res.status(REQUESTSUCCESSFUL).send(list);
-        }else{
-            sendActivities(act, list, ref, res);
         }
      }).catch(function(error){
         console.log(error)
