@@ -434,6 +434,9 @@ app.post('/api/add_activity', function(req, res){
       return;
     }
 
+    var reply = {};
+    reply[host] = "going";
+
     var activity = {
       title: title,
       start_time: start_time * 1.0,
@@ -452,14 +455,7 @@ app.post('/api/add_activity', function(req, res){
       host_group: host_group,
       invited_users: invited_users,
       invited_groups: invited_groups,
-      going: {
-        count: 1,
-        users: [host]
-      },
-      interested: {
-        count: 0,
-        users: []
-      }
+      replies: reply
     };
 
     var newActivityRef = databaseref.child('schools/' + school_identifier + '/activities').push(activity);
@@ -503,7 +499,7 @@ app.post('/api/add_activity', function(req, res){
     res.status(REQUESTSUCCESSFUL).send('activity posted');
 });
 
-app.post('/api/change_interested', function(req, res){
+app.post('/api/interested', function(req, res){
     var token = req.query.token;
 
     var auth = authenticateToken(token);
@@ -518,67 +514,51 @@ app.post('/api/change_interested', function(req, res){
     var school_identifier = req.body['school_identifier'];
     var auid = req.body['auid'];
 
-    console.log('UID: ' + uid);
-    console.log('school_identifier: ' + school_identifier);
-    console.log('AUID: ' + auid);
-
-    databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/interested').transaction(function(snapshot){
-
-        if (snapshot == null) {
-          console.log('snapshot does not exists');
-          return 0;
-        }
-
-        if (snapshot['users']) {
-
-          if (arrayContains(snapshot['users'], uid)) {
-            var index = arrayIndexOf(snapshot['users'],uid);
-            snapshot['users'] = snapshot['users'].splice(index, 1);
-            snapshot['count'] = snapshot['count'] - 1;
-          } else {
-            snapshot['users'] = snapshot['users'].concat([uid]);
-            snapshot['count'] = snapshot['count'] + 1;
-          }
-        } else {
-          snapshot['users'] = [uid];
-          snapshot['count'] = snapshot['count'] + 1;
-        }
-
-        return snapshot;
-    });
+    databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/replies/' + uid).set("interested");
 
     res.status(REQUESTSUCCESSFUL).send('interested changed');
 
 });
 
-function arrayIndexOf(myArray, searchTerm) {
-    for(var i = 0, len = myArray.length; i < len; i++) {
-        if (myArray[i] === searchTerm) return i;
-    }
-    return -1;
-}
+app.post('/api/going', function(req, res){
+  var token = req.query.token;
 
-function arrayContains(myArray, searchTerm) {
-    for(var i = 0, len = myArray.length; i < len; i++) {
-        if (myArray[i] === searchTerm) return true;
-    }
-    return false;
-}
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
 
-app.post('/api/change_going', function(req, res){
-    var token = req.query.token;
+  incrementTokenCalls(token);
 
-    var auth = authenticateToken(token);
-    if(!auth.admin && !auth.write){
-         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
-        return;
-    }
+  var uid = req.body['uid'];
+  var school_identifier = req.body['school_identifier'];
+  var auid = req.body['auid'];
 
-    incrementTokenCalls(token);
+  databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/replies/' + uid).set("going");
 
-    var uid = req.body['uid'];
-    var school_identifier = req.body['school_identifier'];
-    var auid = req.body['auid'];
+  res.status(REQUESTSUCCESSFUL).send('interested changed');
+
+});
+
+app.post('/api/remove_reply', function(req, res){
+  var token = req.query.token;
+
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
+
+  incrementTokenCalls(token);
+
+  var uid = req.body['uid'];
+  var school_identifier = req.body['school_identifier'];
+  var auid = req.body['auid'];
+
+  databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/replies/' + uid).remove();
+
+  res.status(REQUESTSUCCESSFUL).send('interested changed');
 
 });
 
