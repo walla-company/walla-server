@@ -607,7 +607,7 @@ app.post('/api/remove_reply', function(req, res){
 
 });
 
-app.post('/api/get_activity', function(req, res){
+app.get('/api/get_activity', function(req, res){
     var token = req.query.token;
 
     var auth = authenticateToken(token);
@@ -644,7 +644,7 @@ app.post('/api/get_activity', function(req, res){
 
 });
 
-app.post('/api/get_activities', function(req, res){
+app.get('/api/get_activities', function(req, res){
     var token = req.query.token;
 
     var auth = authenticateToken(token);
@@ -662,16 +662,35 @@ app.post('/api/get_activities', function(req, res){
         return;
     }
 
-    var current_time = new Date().getTime() / 1000;
+    var timequery;
+    var filter = req.query.filter;
+    if(!isNaN(filter)){
+        var now = new Date().getTime() / 1000;
+        timequery = now - (filter * SECONDSINHOUR);
+    }else{
+        var now = new Date().getTime() / 1000;
+        var day = 24 * SECONDSINHOUR;
+        timequery = now - day;
+    }
 
     incrementTokenCalls(token);
 
-    databaseref.child('schools/' + school_identifier + '/activities/').orderByChild('start_time').startAt(current_time)
+    console.log('timequery: ' + timequery);
+
+    databaseref.child('schools/' + school_identifier + '/activities/').orderByChild('start_time').startAt(timequery)
         .once('value').then(function(snapshot){
-            if(snapshot.val())
-                sortAndSendActivities(snapshot.val(), res);
-            else
+            if(snapshot.val()) {
+
+                var activities = [];
+                Object.keys(snapshot.val()).forEach( function(key) {
+                  activities.push(snapshot.val()[key]);
+                });
+
+                sortAndSendActivities(activities, res);
+              }
+            else {
                 res.status(REQUESTSUCCESSFUL).send({});
+              }
         })
         .catch(function(error){
             res.status(REQUESTBAD).send(error);
@@ -681,7 +700,44 @@ app.post('/api/get_activities', function(req, res){
 });
 
 function sortAndSendActivities(activities, res) {
+  console.log('activities: ' + activities);
 
+  activities.sort(compareActivities);
+
+  res.status(REQUESTSUCCESSFUL).send(activities);
+}
+
+function compareActivities(a1, a2) {
+
+  // Score = num seconds to event - (people going * 1500  + people interested * 1000)
+
+  var a1_num_going = 0;
+  var a1_num_interested = 0;
+
+  Object.keys(a1['replies']).forEach( function(key) {
+    if (a1['replies'][key] == "going") {
+      a1_num_going++;
+    } else { a1_num_interested++;
+    }
+  });
+
+  var a2_num_going = 0;
+  var a2_num_interested = 0;
+
+  Object.keys(a2['replies']).forEach( function(key) {
+    if (a2['replies'][key] == "going") {
+      a2_num_going++;
+    } else {
+      a2_num_interested++;
+    }
+  });
+
+  var now = new Date().getTime() / 1000;
+
+  var score1 = (a1['start_time'] - now) - (a1_num_going * 1500.0 + a1_num_interested * 1000.0);
+  var score2 = (a2['start_time'] - now) - (a2_num_going * 1500.0 + a2_num_interested * 1000.0);
+
+  return score1 - score2;
 }
 
 function sendActivities(act, list, ref, res){
