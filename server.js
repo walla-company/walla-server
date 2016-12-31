@@ -7,6 +7,7 @@ var TokenGenerator = require( 'token-generator' )({
 });
 var nodemailer = require('nodemailer'); //npm install nodemailer --save
 var fs = require('fs');
+var bodyParser = require('body-parser');
 
 //***************CONSTANTS*************//
 
@@ -38,6 +39,8 @@ var app = express();
 app.set('port', (process.env.PORT || 8080));
 
 app.use(express.static(__dirname + '/public'));
+
+app.use(bodyParser.json());
 
 // views is directory for all template files
 app.set('views', __dirname + '/views');
@@ -155,8 +158,8 @@ app.post('/api/request_token', function(req, res){
         return;
     }
 
-    var owner = req.query.owner;
-    var email = req.query.email;
+    var owner = req.body['owner'];
+    var email = req.body['email'];
 
     if(!owner){
         res.status(REQUESTBAD).send("invalid parameters: no owner");
@@ -222,10 +225,10 @@ app.post('/api/add_school', function(req, res){
         return;
     }
 
-    var name = req.query.name;
-    var full_name = req.query.full_name;
-    var domain = req.query.domain;
-    var school_identifier = req.query.school_identifier;
+    var name = req.body['name'];
+    var full_name = req.body['full_name'];
+    var domain = req.body['domain'];
+    var school_identifier = req.body['school_identifier'];
 
     if (!name) {
       res.status(REQUESTBAD).send("invalid parameters: no name");
@@ -329,22 +332,22 @@ app.post('/api/add_activity', function(req, res){
 
     incrementTokenCalls(token);
 
-    var school_identifier = req.query.school_identifier;
-    var title = req.query.title;
-    var start_time = req.query.start_time;
-    var end_time = req.query.end_time;
-    var location_name = req.query.location_name;
-    var location_address = req.query.location_address;
-    var location_lat = req.query.location_lat;
-    var location_long = req.query.location_long;
-    var activity_public = req.query.public;
-    var interests = req.query.interest;
-    var host = req.query.host;
-    var details = req.query.details;
-    var host_group = req.query.host_group;
-    var invited_users = req.query.invited_user;
-    var invited_groups = req.query.invited_group;
-    var can_others_invite = req.query.can_others_invite;
+    var school_identifier = req.body['school_identifier'];
+    var title = req.body['title'];
+    var start_time = req.body['start_time'];
+    var end_time = req.body['end_time'];
+    var location_name = req.body['location_name'];
+    var location_address = req.body['location_address'];
+    var location_lat = req.body['location_lat'];
+    var location_long = req.body['location_long'];
+    var activity_public = req.body['activity_public'];
+    var interests = req.body['interests'];
+    var host = req.body['host'];
+    var details = req.body['details'];
+    var host_group = req.body['host_group'];
+    var invited_users = req.body['invited_users'];
+    var invited_groups = req.body['invited_groups'];
+    var can_others_invite = req.body['can_others_invite'];
 
     if (!school_identifier) {
       res.status(REQUESTBAD).send("invalid parameters: no school identifier");
@@ -421,6 +424,16 @@ app.post('/api/add_activity', function(req, res){
       invited_groups = [];
     }
 
+    if (title.length > 50) {
+      res.status(REQUESTBAD).send("invalid parameters: title too long");
+      return;
+    }
+
+    if (details.length > 1000) {
+      res.status(REQUESTBAD).send("invalid parameters: details too long");
+      return;
+    }
+
     var activity = {
       title: title,
       start_time: start_time * 1.0,
@@ -486,9 +499,120 @@ app.post('/api/add_activity', function(req, res){
     invited_groups.forEach( function(guid) {
       inviteUser(guid, school_identifier, auid);
     });
-    
+
     res.status(REQUESTSUCCESSFUL).send('activity posted');
 });
+
+app.post('/api/change_interested', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.write){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var uid = req.body['uid'];
+    var school_identifier = req.body['school_identifier'];
+    var auid = req.body['auid'];
+
+    console.log('UID: ' + uid);
+    console.log('school_identifier: ' + school_identifier);
+    console.log('AUID: ' + auid);
+
+    databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/interested').transaction(function(snapshot){
+
+        if (snapshot == null) {
+          console.log('snapshot does not exists');
+          return 0;
+        }
+
+        if (snapshot['users']) {
+
+          if (arrayContains(snapshot['users'], uid)) {
+            var index = arrayIndexOf(snapshot['users'],uid);
+            snapshot['users'] = snapshot['users'].splice(index, 1);
+            snapshot['count'] = snapshot['count'] - 1;
+          } else {
+            snapshot['users'] = snapshot['users'].concat([uid]);
+            snapshot['count'] = snapshot['count'] + 1;
+          }
+        } else {
+          snapshot['users'] = [uid];
+          snapshot['count'] = snapshot['count'] + 1;
+        }
+
+        return snapshot;
+    });
+
+    res.status(REQUESTSUCCESSFUL).send('interested changed');
+
+});
+
+function arrayIndexOf(myArray, searchTerm) {
+    for(var i = 0, len = myArray.length; i < len; i++) {
+        if (myArray[i] === searchTerm) return i;
+    }
+    return -1;
+}
+
+function arrayContains(myArray, searchTerm) {
+    for(var i = 0, len = myArray.length; i < len; i++) {
+        if (myArray[i] === searchTerm) return true;
+    }
+    return false;
+}
+
+app.post('/api/change_going', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.write){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var uid = req.body['uid'];
+    var school_identifier = req.body['school_identifier'];
+    var auid = req.body['auid'];
+
+});
+
+app.post('/api/get_activity', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.read){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
+    var auid = req.query.auid;
+
+});
+
+app.post('/api/get_activities', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.read){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
+
+});
+
 
 //***************INVITE HANDLERS*************//
 

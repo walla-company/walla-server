@@ -12,7 +12,8 @@
     "firebase-admin": "*",
     "token-generator": "*",
     "nodemailer": "*",
-    "fs": "*"
+    "fs": "*",
+    "body-parser": "*"
   },
   "keywords": [],
   "author": "",
