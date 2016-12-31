@@ -424,7 +424,7 @@ app.post('/api/add_activity', function(req, res){
       invited_groups = [];
     }
 
-    if (title.length > 50) {
+    if (title.length > 80) {
       res.status(REQUESTBAD).send("invalid parameters: title too long");
       return;
     }
