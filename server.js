@@ -330,6 +330,7 @@ app.post('/api/add_group', function(req, res){
     var guid = newGroupRef.key;
 
     newGroupRef.child('group_id').set(guid);
+    databaseref.child('schools/' + school_identifier + '/search_groups_array/' + guid).set(name + " " + short_name);
 
     res.status(REQUESTSUCCESSFUL).send('group ' + name + 'added');
 });
@@ -821,6 +822,7 @@ function inviteGroup(guid, school_identifier, auid) {
   console.log('Invite group: ' + guid);
 }
 
+
 //***************USER HANDLERS*************//
 
 app.post('/api/add_user', function(req, res){
@@ -909,6 +911,8 @@ app.post('/api/add_user', function(req, res){
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/hometown').set(hometown);
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/description').set(description);
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/profile_image_url').set(profile_image_url);
+
+  databaseref.child('schools/' + school_identifier + '/search_users_array/' + uid).set(first_name + " " + last_name);
 
   res.status(REQUESTSUCCESSFUL).send('user added');
 
@@ -1022,6 +1026,17 @@ app.post('/api/update_user_first_name', function(req, res){
 
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/first_name').set(first_name);
 
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + "/last_name").once('value').then(function(snapshot){
+          if(snapshot.val())
+              databaseref.child('schools/' + school_identifier + '/search_users_array/' + uid).set(first_name + " " + snapshot.val());
+          else
+              res.status(REQUESTBAD).send("could ot get last name");
+      })
+      .catch(function(error){
+          res.status(REQUESTBAD).send(error);
+          console.log(error);
+  });
+
   res.status(REQUESTSUCCESSFUL).send('first name updated');
 
 });
@@ -1057,6 +1072,17 @@ app.post('/api/update_user_last_name', function(req, res){
   }
 
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/last_name').set(last_name);
+
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + "/first_name").once('value').then(function(snapshot){
+          if(snapshot.val())
+              databaseref.child('schools/' + school_identifier + '/search_users_array/' + uid).set(snapshot.val() + " " + last_name);
+          else
+              res.status(REQUESTBAD).send("could ot get first name");
+      })
+      .catch(function(error){
+          res.status(REQUESTBAD).send(error);
+          console.log(error);
+  });
 
   res.status(REQUESTSUCCESSFUL).send('last name updated');
 
