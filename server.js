@@ -401,6 +401,8 @@ app.post('/api/add_activity', function(req, res){
     var host = req.body['host'];
     var details = req.body['details'];
     var host_group = req.body['host_group'];
+    var host_group_name = req.body['host_group_name'];
+    var host_group_short_name = req.body['host_group_short_name'];
     var invited_users = req.body['invited_users'];
     var invited_groups = req.body['invited_groups'];
     var can_others_invite = req.body['can_others_invite'];
@@ -470,6 +472,14 @@ app.post('/api/add_activity', function(req, res){
 
     if (!host_group) {
       host_group = "";
+    }
+
+    if (!host_group_name) {
+      host_group_name = "";
+    }
+
+    if (!host_group_short_name) {
+      host_group_short_name = "";
     }
 
     if (!invited_users) {
@@ -806,6 +816,16 @@ function inviteUser(uid, school_identifier, auid) {
 function inviteGroup(guid, school_identifier, auid) {
   console.log('Invite group: ' + guid);
 }
+
+//***************USER HANDLERS*************//
+
+
+//***************GROUP HANDLERS*************//
+
+
+//***************DISCUSSION HANDLERS*************//
+
+//***************OLD*************//
 
 //.../api/min_version?platform=android
 //0001 - requires read rights
