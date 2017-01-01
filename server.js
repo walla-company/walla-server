@@ -539,17 +539,13 @@ app.post('/api/add_activity', function(req, res){
         return snapshot;
     });
 
-    if (host_group != "") {
-      databaseref.child('schools/' + school_identifier + '/groups/' + host_group + '/activities').transaction(function(snapshot){
-          if(snapshot){
-              snapshot = snapshot.concat([auid]);
-          }else{
-              snapshot = [auid];
-          }
+    var current_time = new Date().getTime() / 1000;
 
-          return snapshot;
-      });
+    if (host_group != "") {
+      databaseref.child('schools/' + school_identifier + '/groups/' + host_group + '/activities/' + auid).set(current_time);
     }
+
+    databaseref.child('schools/' + school_identifier + '/users/' + uid + '/activities/' + auid).set(current_time);
 
     console.log('invited_users: ' + invited_users);
     console.log('invited_groups: ' + invited_groups);
@@ -597,6 +593,9 @@ app.post('/api/interested', function(req, res){
 
     databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/replies/' + uid).set("interested");
 
+    var current_time = new Date().getTime() / 1000;
+    databaseref.child('schools/' + school_identifier + '/users/' + uid + '/calendar/' + auid).set(current_time);
+
     res.status(REQUESTSUCCESSFUL).send('interested changed');
 
 });
@@ -633,6 +632,9 @@ app.post('/api/going', function(req, res){
 
   databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/replies/' + uid).set("going");
 
+  var current_time = new Date().getTime() / 1000;
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/calendar/' + auid).set(current_time);
+
   res.status(REQUESTSUCCESSFUL).send('interested changed');
 
 });
@@ -668,6 +670,8 @@ app.post('/api/remove_reply', function(req, res){
   }
 
   databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/replies/' + uid).remove();
+
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/calendar/' + auid).remove();
 
   res.status(REQUESTSUCCESSFUL).send('interested changed');
 
@@ -819,11 +823,620 @@ function inviteGroup(guid, school_identifier, auid) {
 
 //***************USER HANDLERS*************//
 
+app.post('/api/add_user', function(req, res){
+  var token = req.query.token;
+
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
+
+  incrementTokenCalls(token);
+
+  var uid = req.body['uid'];
+  var school_identifier = req.body['school_identifier'];
+  var first_name = req.body["first_name"];
+  var last_name = req.body["last_name"];
+  var email = req.body["email"];
+  var academic_level = req.body["academic_level"];
+  var major = req.body["major"];
+  var graduation_year = req.body["graduation_year"];
+  var hometown = req.body["hometown"];
+  var description = req.body["description"];
+  var profile_image_url = req.body["profile_image_url"];
+
+  if(!uid){
+      res.status(REQUESTBAD).send("invalid parameters: no uid");
+      return;
+  }
+
+  if(!school_identifier){
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+  }
+
+  if(!first_name){
+      res.status(REQUESTBAD).send("invalid parameters: no first name");
+      return;
+  }
+
+  if(!last_name){
+      res.status(REQUESTBAD).send("invalid parameters: no last name");
+      return;
+  }
+
+  if(!email){
+      res.status(REQUESTBAD).send("invalid parameters: no email");
+      return;
+  }
+
+  if(!academic_level){
+      res.status(REQUESTBAD).send("invalid parameters: no academic level");
+      return;
+  }
+
+  if(!major){
+      res.status(REQUESTBAD).send("invalid parameters: no major");
+      return;
+  }
+
+  if(!graduation_year){
+      res.status(REQUESTBAD).send("invalid parameters: no graduation year");
+      return;
+  }
+
+  if(!hometown){
+      hometown = "";
+  }
+
+  if(!description){
+      description = "";
+  }
+
+  if(!profile_image_url){
+      profile_image_url = "";
+  }
+
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/user_id').set(uid);
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/verified').set(false);
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/first_name').set(first_name);
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/last_name').set(last_name);
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/email').set(email);
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/academic_level').set(academic_level);
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/major').set(major);
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/graduation_year').set(graduation_year * 1);
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/hometown').set(hometown);
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/description').set(description);
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/profile_image_url').set(profile_image_url);
+
+  res.status(REQUESTSUCCESSFUL).send('user added');
+
+  //sendVerificationEmail
+
+});
+
+app.get('/api/get_user', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.read){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
+    var uid = req.query.uid;
+
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    databaseref.child('schools/' + school_identifier + '/users/' + uid).once('value').then(function(snapshot){
+            if(snapshot.val())
+                res.status(REQUESTSUCCESSFUL).send(snapshot.val());
+            else
+                res.status(REQUESTSUCCESSFUL).send({});
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+});
+
+app.get('/api/get_user_full_name', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.read){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
+    var uid = req.query.uid;
+
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    databaseref.child('schools/' + school_identifier + '/users/' + uid).once('value').then(function(snapshot){
+            if(snapshot.val())
+                res.status(REQUESTSUCCESSFUL).send({name: snapshot.val()["first_name"] + " " + snapshot.val()["last_name"]});
+            else
+                res.status(REQUESTSUCCESSFUL).send({});
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+});
+
+app.post('/api/update_user_first_name', function(req, res){
+  var token = req.query.token;
+
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
+
+  incrementTokenCalls(token);
+
+  var uid = req.body['uid'];
+  var school_identifier = req.body['school_identifier'];
+  var first_name = req.body["first_name"];
+
+  if(!uid){
+      res.status(REQUESTBAD).send("invalid parameters: no uid");
+      return;
+  }
+
+  if(!school_identifier){
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+  }
+
+  if(!first_name){
+      res.status(REQUESTBAD).send("invalid parameters: no first name");
+      return;
+  }
+
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/first_name').set(first_name);
+
+  res.status(REQUESTSUCCESSFUL).send('first name updated');
+
+});
+
+app.post('/api/update_user_last_name', function(req, res){
+  var token = req.query.token;
+
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
+
+  incrementTokenCalls(token);
+
+  var uid = req.body['uid'];
+  var school_identifier = req.body['school_identifier'];
+  var last_name = req.body["last_name"];
+
+  if(!uid){
+      res.status(REQUESTBAD).send("invalid parameters: no uid");
+      return;
+  }
+
+  if(!school_identifier){
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+  }
+
+  if(!last_name){
+      res.status(REQUESTBAD).send("invalid parameters: no last name");
+      return;
+  }
+
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/last_name').set(last_name);
+
+  res.status(REQUESTSUCCESSFUL).send('last name updated');
+
+});
+
+app.post('/api/update_user_email', function(req, res){
+  var token = req.query.token;
+
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
+
+  incrementTokenCalls(token);
+
+  var uid = req.body['uid'];
+  var school_identifier = req.body['school_identifier'];
+  var email = req.body["email"];
+
+  if(!uid){
+      res.status(REQUESTBAD).send("invalid parameters: no uid");
+      return;
+  }
+
+  if(!school_identifier){
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+  }
+
+  if(!email){
+      res.status(REQUESTBAD).send("invalid parameters: no email");
+      return;
+  }
+
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/email').set(email);
+
+  res.status(REQUESTSUCCESSFUL).send('email updated');
+
+});
+
+app.post('/api/update_user_academic_level', function(req, res){
+  var token = req.query.token;
+
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
+
+  incrementTokenCalls(token);
+
+  var uid = req.body['uid'];
+  var school_identifier = req.body['school_identifier'];
+  var academic_level = req.body["academic_level"];
+
+  if(!uid){
+      res.status(REQUESTBAD).send("invalid parameters: no uid");
+      return;
+  }
+
+  if(!school_identifier){
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+  }
+
+  if(!academic_level){
+      res.status(REQUESTBAD).send("invalid parameters: no academic level");
+      return;
+  }
+
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/academic_level').set(academic_level);
+
+  res.status(REQUESTSUCCESSFUL).send('academic level updated');
+
+});
+
+app.post('/api/update_user_major', function(req, res){
+  var token = req.query.token;
+
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
+
+  incrementTokenCalls(token);
+
+  var uid = req.body['uid'];
+  var school_identifier = req.body['school_identifier'];
+  var major = req.body["major"];
+
+  if(!uid){
+      res.status(REQUESTBAD).send("invalid parameters: no uid");
+      return;
+  }
+
+  if(!school_identifier){
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+  }
+
+  if(!major){
+      res.status(REQUESTBAD).send("invalid parameters: major");
+      return;
+  }
+
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/major').set(major);
+
+  res.status(REQUESTSUCCESSFUL).send('major updated');
+
+});
+
+app.post('/api/update_user_graduation_year', function(req, res){
+  var token = req.query.token;
+
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
+
+  incrementTokenCalls(token);
+
+  var uid = req.body['uid'];
+  var school_identifier = req.body['school_identifier'];
+  var graduation_year = req.body["graduation_year"];
+
+  if(!uid){
+      res.status(REQUESTBAD).send("invalid parameters: no uid");
+      return;
+  }
+
+  if(!school_identifier){
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+  }
+
+  if(!graduation_year){
+      res.status(REQUESTBAD).send("invalid parameters: no graduation year");
+      return;
+  }
+
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/graduation_year').set(graduation_year*1);
+
+  res.status(REQUESTSUCCESSFUL).send('graduation year updated');
+
+});
+
+app.post('/api/update_user_hometown', function(req, res){
+  var token = req.query.token;
+
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
+
+  incrementTokenCalls(token);
+
+  var uid = req.body['uid'];
+  var school_identifier = req.body['school_identifier'];
+  var hometown = req.body["hometown"];
+
+  if(!uid){
+      res.status(REQUESTBAD).send("invalid parameters: no uid");
+      return;
+  }
+
+  if(!school_identifier){
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+  }
+
+  if(!hometown){
+      res.status(REQUESTBAD).send("invalid parameters: no hometown");
+      return;
+  }
+
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/hometown').set(hometown);
+
+  res.status(REQUESTSUCCESSFUL).send('hometown updated');
+
+});
+
+app.post('/api/update_user_description', function(req, res){
+  var token = req.query.token;
+
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
+
+  incrementTokenCalls(token);
+
+  var uid = req.body['uid'];
+  var school_identifier = req.body['school_identifier'];
+  var description = req.body["description"];
+
+  if(!uid){
+      res.status(REQUESTBAD).send("invalid parameters: no uid");
+      return;
+  }
+
+  if(!school_identifier){
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+  }
+
+  if(!description){
+      res.status(REQUESTBAD).send("invalid parameters: no description");
+      return;
+  }
+
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/description').set(description);
+
+  res.status(REQUESTSUCCESSFUL).send('user description updated');
+
+});
+
+app.post('/api/update_user_profile_image_url', function(req, res){
+  var token = req.query.token;
+
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
+
+  incrementTokenCalls(token);
+
+  var uid = req.body['uid'];
+  var school_identifier = req.body['school_identifier'];
+  var profile_image_url = req.body["profile_image_url"];
+
+  if(!uid){
+      res.status(REQUESTBAD).send("invalid parameters: no uid");
+      return;
+  }
+
+  if(!school_identifier){
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+  }
+
+  if(!profile_image_url){
+      res.status(REQUESTBAD).send("invalid parameters: no profile image url");
+      return;
+  }
+
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/profile_image_url').set(profile_image_url);
+
+  res.status(REQUESTSUCCESSFUL).send('profile image url updated');
+
+});
 
 //***************GROUP HANDLERS*************//
 
+app.get('/api/get_group', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.read){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
+    var guid = req.query.guid;
+
+    if(!guid){
+        res.status(REQUESTBAD).send("invalid parameters: no guid");
+        return;
+    }
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    databaseref.child('schools/' + school_identifier + '/groups/' + guid).once('value').then(function(snapshot){
+            if(snapshot.val())
+                res.status(REQUESTSUCCESSFUL).send(snapshot.val());
+            else
+                res.status(REQUESTSUCCESSFUL).send({});
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+});
+
+app.post('/api/join_group', function(req, res){
+  var token = req.query.token;
+
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
+
+  incrementTokenCalls(token);
+
+  var uid = req.body['uid'];
+  var school_identifier = req.body['school_identifier'];
+  var guid = req.body['guid'];
+
+  if(!uid){
+      res.status(REQUESTBAD).send("invalid parameters: no uid");
+      return;
+  }
+
+  if(!school_identifier){
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+  }
+
+  if(!guid){
+      res.status(REQUESTBAD).send("invalid parameters: no guid");
+      return;
+  }
+
+  var current_time = new Date().getTime() / 1000;
+  databaseref.child('schools/' + school_identifier + '/groups/' + guid + '/members/' + uid).set(current_time);
+
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/groups/' + guid).set(current_time);
+
+  res.status(REQUESTSUCCESSFUL).send('interested changed');
+
+});
+
+app.post('/api/leave_group', function(req, res){
+  var token = req.query.token;
+
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
+
+  incrementTokenCalls(token);
+
+  var uid = req.body['uid'];
+  var school_identifier = req.body['school_identifier'];
+  var guid = req.body['guid'];
+
+  if(!uid){
+      res.status(REQUESTBAD).send("invalid parameters: no uid");
+      return;
+  }
+
+  if(!school_identifier){
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+  }
+
+  if(!guid){
+      res.status(REQUESTBAD).send("invalid parameters: no guid");
+      return;
+  }
+
+  databaseref.child('schools/' + school_identifier + '/groups/' + guid + '/members/' + uid).remove();
+
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/groups/' + guid).remove();
+
+  res.status(REQUESTSUCCESSFUL).send('interested changed');
+
+});
 
 //***************DISCUSSION HANDLERS*************//
+
+
+
+//***************NOTIFICATIONS HANDLERS*************//
+
+
 
 //***************OLD*************//
 
