@@ -279,6 +279,62 @@ app.post('/api/add_school', function(req, res){
         }).catch(error => console.log(error));
 });
 
+app.post('/api/add_group', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    var name = req.body['name'];
+    var short_name = req.body['short_name'];
+    var color = req.body['color'];
+    var school_identifier = req.body['school_identifier'];
+    var details = req.body['details'];
+
+    if (!name) {
+      res.status(REQUESTBAD).send("invalid parameters: no name");
+      return;
+    }
+
+    if (!short_name) {
+      res.status(REQUESTBAD).send("invalid parameters: no short name");
+      return;
+    }
+
+    if (!color) {
+      res.status(REQUESTBAD).send("invalid parameters: no color");
+      return;
+    }
+
+    if (!school_identifier) {
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+    }
+
+    if (!details) {
+      res.status(REQUESTBAD).send("invalid parameters: no details");
+      return;
+    }
+
+    var group = {
+      name: name,
+      short_name: short_name,
+      color: color,
+      details: details
+    };
+
+    var newGroupRef = databaseref.child('schools/' + school_identifier + '/groups').push(group);
+    var guid = newGroupRef.key;
+
+    newGroupRef.child('group_id').set(guid);
+
+    res.status(REQUESTSUCCESSFUL).send('group ' + name + 'added');
+});
+
+
 //***************DOMAIN HANDLERS*************//
 
 //0001 - requires read rights
@@ -740,28 +796,6 @@ function compareActivities(a1, a2) {
   return score1 - score2;
 }
 
-function sendActivities(act, list, ref, res){
-    var key = Object.keys(act)[0];
-    if(!key){
-        res.status(REQUESTBAD).send('could not retrieve data');
-        return;
-    }
-
-    delete act[key];
-
-    ref.child('activities').child(key).once('value').then(function(snapshot){
-        list.push(snapshot.val());
-
-        if(Object.keys(act).length == 0){
-             res.status(REQUESTSUCCESSFUL).send(list);
-        }else{
-            sendActivities(act, list, ref, res);
-        }
-     }).catch(function(error){
-        console.log(error)
-     })
-}
-
 
 //***************INVITE HANDLERS*************//
 
@@ -802,60 +836,6 @@ app.get('/api/min_version', function(req, res){
     }
 
 });
-
-//get activities posted
-//0001 - requires read rights
-app.get('/api/activities', function(req, res){
-    var token = req.query.token;
-
-    var auth = authenticateToken(token);
-    if(!auth.read && !auth.admin){
-         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
-        return;
-    }
-
-    var school = req.query.domain;
-    if(!school){
-        res.status(REQUESTBAD).send("invalid parameters: no domain");
-        return;
-    }
-
-    if(!domainAllowed(school)){
-        res.status(REQUESTBAD).send("domain '" + school + "' is not allowed");
-        return;
-    }
-
-    var timequery;
-    var filter = req.query.filter;
-    if(!isNaN(filter)){
-        var now = new Date().getTime() / 1000;
-        timequery = now - (filter * SECONDSINHOUR);
-    }else{
-        var now = new Date().getTime() / 1000;
-        var day = 24 * SECONDSINHOUR;
-        timequery = now - day;
-    }
-
-    incrementTokenCalls(token);
-
-    var act = databaseref.child(school);
-    if(school == 'duke-*-edu') act = databaseref;
-
-    act.child('activities').orderByChild('activityTime').startAt(timequery)
-        .once('value').then(function(snapshot){
-            var a = snapshot.val();
-            if(a)
-                sendActivities(a, [], act, res);
-            else
-                res.status(REQUESTSUCCESSFUL).send({});
-        })
-        .catch(function(error){
-            res.status(REQUESTBAD).send(error);
-            console.log(error);
-    });
-
-});
-
 
 app.get('/api/attendees', function(req, res){
     var token = req.query.token;
