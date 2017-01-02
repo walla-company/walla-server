@@ -1184,14 +1184,14 @@ app.post('/api/update_user_interests', function(req, res){
         res.status(REQUESTBAD).send("invalid parameters: no school identifier");
         return;
     }
-    
+
     if(!interests){
         res.status(REQUESTBAD).send("invalid parameters: no interests");
         return;
     }
-    
-    databaseref.child('schools').child(school_identifier).child('users').child('interests').set(interests);
-    res.statuss(REQUESTSUCCESSFUL).send("interests updated");
+
+    databaseref.child('schools').child(school_identifier).child('users').child(uid).child('interests').set(interests);
+    res.status(REQUESTSUCCESSFUL).send("interests updated");
 
 });
 
