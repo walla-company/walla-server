@@ -1160,6 +1160,41 @@ app.post('/api/update_user_academic_level', function(req, res){
 
 });
 
+app.post('/api/update_user_interests', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.write){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.body.school_identifier;
+    var uid = req.body.uid;
+    var interests = req.body.interests;
+
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+    
+    if(!interests){
+        res.status(REQUESTBAD).send("invalid parameters: no interests");
+        return;
+    }
+    
+    databaseref.child('schools').child(school_identifier).child('users').child('interests').set(interests);
+    res.statuss(REQUESTSUCCESSFUL).send("interests updated");
+
+});
+
 app.post('/api/update_user_major', function(req, res){
   var token = req.query.token;
 
