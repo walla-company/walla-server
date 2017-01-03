@@ -1391,7 +1391,7 @@ app.post('/api/update_user_last_logon', function(req, res){
 
   var uid = req.body['uid'];
   var school_identifier = req.body['school_identifier'];
-  var last_logon = req.body["profile_image_url"];
+  var last_logon = req.body["last_logon"];
 
   if(!uid){
       res.status(REQUESTBAD).send("invalid parameters: no uid");
