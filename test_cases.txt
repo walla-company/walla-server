@@ -1,0 +1,36 @@
+{
+    "school_identifier": "duke",
+    "title": "Title",
+    "start_time": 1234.5,
+    "end_time": 6789.0,
+    "location_name": "Location",
+    "location_address": "Address",
+    "location_lat": 1.1,
+    "location_long": 2.2,
+    "activity_public": true,
+    "interests": ["Movies"],
+    "host": "User1",
+    "details": "Details",
+    "host_group": "Group1",
+host_group_name
+host_group_short_name
+    "invited_users": ["User2", "User3"],
+    "invited_groups": ["Group2", "Groups3"],
+    "can_others_invite": true
+}
+
+{
+    "uid": "User2",
+    "school_identifier": "duke",
+    "auid": "-K_HL-3dwkJaaHV8V4El"
+}
+
+{
+	"name": "Group Name",
+  	"short_name": "GNAME",
+  	"color": "#42f48f",
+  	"details": "This is a test group.",
+  	"school_identifier": "duke"
+}
+
+http://localhost:5000
