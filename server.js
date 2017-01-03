@@ -997,7 +997,50 @@ app.get('/api/get_user_full_name', function(req, res){
 
 });
 
-// Get basic info
+app.get('/api/get_user_basic_info', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.read){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
+    var uid = req.query.uid;
+
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    databaseref.child('schools/' + school_identifier + '/users/' + uid).once('value').then(function(snapshot){
+            if(snapshot.val())
+                var basic_info = {
+                  name: snapshot.val()["first_name"] + " " + snapshot.val()["last_name"],
+                  graduation_year: snapshot.val()["graduation_year"],
+                  major: snapshot.val()["major"],
+                  academic_level: snapshot.val()["academic_level"],
+                  hometown: snapshot.val()["hometown"]
+                };
+                res.status(REQUESTSUCCESSFUL).send();
+            else
+                res.status(REQUESTSUCCESSFUL).send({});
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+});
+
 // Get friends
 // Get interests
 // Get groups
