@@ -1030,7 +1030,7 @@ app.get('/api/get_user_basic_info', function(req, res){
                   academic_level: snapshot.val()["academic_level"],
                   hometown: snapshot.val()["hometown"]
                 };
-                res.status(REQUESTSUCCESSFUL).send();
+                res.status(REQUESTSUCCESSFUL).send(basic_info);
               }
             else {
                 res.status(REQUESTSUCCESSFUL).send({});
