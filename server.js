@@ -1022,7 +1022,7 @@ app.get('/api/get_user_basic_info', function(req, res){
     }
 
     databaseref.child('schools/' + school_identifier + '/users/' + uid).once('value').then(function(snapshot){
-            if(snapshot.val())
+            if(snapshot.val()) {
                 var basic_info = {
                   name: snapshot.val()["first_name"] + " " + snapshot.val()["last_name"],
                   graduation_year: snapshot.val()["graduation_year"],
@@ -1031,8 +1031,10 @@ app.get('/api/get_user_basic_info', function(req, res){
                   hometown: snapshot.val()["hometown"]
                 };
                 res.status(REQUESTSUCCESSFUL).send();
-            else
+              }
+            else {
                 res.status(REQUESTSUCCESSFUL).send({});
+              }
         })
         .catch(function(error){
             res.status(REQUESTBAD).send(error);
