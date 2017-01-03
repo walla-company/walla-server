@@ -900,6 +900,8 @@ app.post('/api/add_user', function(req, res){
       profile_image_url = "";
   }
 
+  var current_time = new Date().getTime() / 1000;
+
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/user_id').set(uid);
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/verified').set(false);
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/first_name').set(first_name);
@@ -911,6 +913,7 @@ app.post('/api/add_user', function(req, res){
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/hometown').set(hometown);
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/description').set(description);
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/profile_image_url').set(profile_image_url);
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/time_created').set(current_time);
 
   databaseref.child('schools/' + school_identifier + '/search_users_array/' + uid).set(first_name + " " + last_name);
 
