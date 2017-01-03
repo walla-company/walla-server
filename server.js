@@ -1028,7 +1028,8 @@ app.get('/api/get_user_basic_info', function(req, res){
                   graduation_year: snapshot.val()["graduation_year"],
                   major: snapshot.val()["major"],
                   academic_level: snapshot.val()["academic_level"],
-                  hometown: snapshot.val()["hometown"]
+                  hometown: snapshot.val()["hometown"],
+                  profile_image_url: snapshot.val()["profile_image_url"]
                 };
                 res.status(REQUESTSUCCESSFUL).send(basic_info);
               }
