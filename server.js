@@ -1179,9 +1179,9 @@ app.post('/api/update_user_interests', function(req, res){
 
     incrementTokenCalls(token);
 
-    var school_identifier = req.body.school_identifier;
-    var uid = req.body.uid;
-    var interests = req.body.interests;
+    var school_identifier = req.body['school_identifier'];
+    var uid = req.body['uid'];
+    var interests = req.body['interests'];
 
     if(!uid){
         res.status(REQUESTBAD).send("invalid parameters: no uid");
