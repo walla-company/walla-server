@@ -1535,6 +1535,9 @@ app.post('/api/leave_group', function(req, res){
 
 });
 
+//***************FRIEND HANDLERS*************//
+
+
 //***************DISCUSSION HANDLERS*************//
 
 
