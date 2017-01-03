@@ -913,7 +913,7 @@ app.post('/api/add_user', function(req, res){
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/hometown').set(hometown);
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/description').set(description);
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/profile_image_url').set(profile_image_url);
-  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/time_created').set(current_time);
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/time_created').set(current_time*1.0);
 
   databaseref.child('schools/' + school_identifier + '/search_users_array/' + uid).set(first_name + " " + last_name);
 
@@ -1375,6 +1375,42 @@ app.post('/api/update_user_profile_image_url', function(req, res){
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/profile_image_url').set(profile_image_url);
 
   res.status(REQUESTSUCCESSFUL).send('profile image url updated');
+
+});
+
+app.post('/api/update_user_last_logon', function(req, res){
+  var token = req.query.token;
+
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
+
+  incrementTokenCalls(token);
+
+  var uid = req.body['uid'];
+  var school_identifier = req.body['school_identifier'];
+  var last_logon = req.body["profile_image_url"];
+
+  if(!uid){
+      res.status(REQUESTBAD).send("invalid parameters: no uid");
+      return;
+  }
+
+  if(!school_identifier){
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+  }
+
+  if(!last_logon){
+      res.status(REQUESTBAD).send("invalid parameters: no last logon");
+      return;
+  }
+
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/last_logon').set(last_logon*1.0);
+
+  res.status(REQUESTSUCCESSFUL).send('lats logon updated');
 
 });
 
