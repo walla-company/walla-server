@@ -997,6 +997,11 @@ app.get('/api/get_user_full_name', function(req, res){
 
 });
 
+// Get basic info
+// Get friends
+// Get interests
+// Get groups
+
 app.post('/api/update_user_first_name', function(req, res){
   var token = req.query.token;
 
