@@ -1583,6 +1583,7 @@ app.post('/api/leave_group', function(req, res){
 
 //***************FRIEND HANDLERS*************//
 
+/*
 app.post('/api/add_friend', function(req, res){
     var token = req.query.token;
 
@@ -1601,7 +1602,7 @@ app.post('/api/add_friend', function(req, res){
         res.status(REQUESTBAD).send("invalid parameters: no school identifier");
         return;
     }
-    
+
     if(!uid){
         res.status(REQUESTBAD).send("invalid parameters: no uid");
         return;
@@ -1636,7 +1637,7 @@ app.post('/api/remove_friend', function(req, res){
         res.status(REQUESTBAD).send("invalid parameters: no school identifier");
         return;
     }
-    
+
     if(!uid){
         res.status(REQUESTBAD).send("invalid parameters: no uid");
         return;
@@ -1651,6 +1652,7 @@ app.post('/api/remove_friend', function(req, res){
     res.status(REQUESTSUCCESSFUL).send("friend removed");
 
 });
+*/
 
 //***************DISCUSSION HANDLERS*************//
 
