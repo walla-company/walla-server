@@ -1583,6 +1583,74 @@ app.post('/api/leave_group', function(req, res){
 
 //***************FRIEND HANDLERS*************//
 
+app.post('/api/add_friend', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.write){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    var school_identifier = req.body['school_identifier'];
+    console.log(school_identifier);
+    var uid = req.body.uid;
+    var friend = req.body.friend;
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+    
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    if(!friend){
+        res.status(REQUESTBAD).send("invalid parameters: no friend");
+        return;
+    }
+
+    var friend_obj = {};
+    friend_obj[friend] = new Date().getTime() / 1000;
+    databaseref.child('schools').child(school_identifier).child('users').child(uid).child('friends').update(friend_obj);
+    res.status(REQUESTSUCCESSFUL).send("friend added");
+x
+});
+
+app.post('/api/remove_friend', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.write){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    var school_identifier = req.body.school_identifier;
+    var uid = req.body.uid;
+    var friend = req.body.friend;
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+    
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    if(!friend){
+        res.status(REQUESTBAD).send("invalid parameters: no friend");
+        return;
+    }
+
+    databaseref.child('schools').child(school_identifier).child('users').child(uid).child('friends').child(friend).remove();
+    res.status(REQUESTSUCCESSFUL).send("friend removed");
+
+});
 
 //***************DISCUSSION HANDLERS*************//
 
