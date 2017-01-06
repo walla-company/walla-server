@@ -31,6 +31,10 @@ const MAXFLAGS = 2;
 const FLAGREPORTEMAIL = 'hollawalladuke@gmail.com' //'hollawalladuke@gmail.com';
 const WEBSITE = 'https://walla-server.herokuapp.com';
 
+const NOTIFICATIONFRIENDREQUEST = "friend_request";
+const NOTIFICATIONUSERINVITED = "user_invited";
+const NOTIFICATIONGROUPINVITED = "group_invited";
+
 
 //***************INITIALIZATION*************//
 
@@ -816,10 +820,51 @@ function compareActivities(a1, a2) {
 
 function inviteUser(uid, school_identifier, auid) {
   console.log('Invite user: ' + uid);
+
+  var current_time = new Date().getTime() / 1000;
+
+  var notification = {
+    time_created: current_time*1.0,
+    type: NOTIFICATIONUSERINVITED,
+    sender: uid,
+    auid: auid
+  };
+
+  var notificationRef = databaseref.child('schools/' + school_identifier + '/notifications/' + uid).push(notification);
+  databaseref.child('schools/' + school_identifier + '/notifications/' + uid + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
 }
 
 function inviteGroup(guid, school_identifier, auid) {
   console.log('Invite group: ' + guid);
+
+  var current_time = new Date().getTime() / 1000;
+
+  databaseref.child('schools/' + school_identifier + '/groups/' + guid).once('value').then(function(snapshot){
+
+          console.log("Group: " + snapshot.val());
+
+          if (snapshot.val()["members"] != null) {
+            for (var member_id in snapshot.val()["members"]) {
+
+              var notification = {
+                time_created: current_time*1.0,
+                type: NOTIFICATIONGROUPINVITED,
+                sender: guid,
+                group_name: snapshot.val()["name"],
+                group_short_name: snapshot.val()["short_name"],
+                auid: auid
+              };
+
+              var notificationRef = databaseref.child('schools/' + school_identifier + '/notifications/' + member_id).push(notification);
+              databaseref.child('schools/' + school_identifier + '/notifications/' + member_id + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
+
+            }
+          }
+      })
+      .catch(function(error){
+          res.status(REQUESTBAD).send(error);
+          console.log(error);
+  });
 }
 
 
@@ -1044,9 +1089,122 @@ app.get('/api/get_user_basic_info', function(req, res){
 
 });
 
-// Get friends
-// Get interests
-// Get groups
+app.get('/api/get_user_friends', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.read){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
+    var uid = req.query.uid;
+
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    databaseref.child('schools/' + school_identifier + '/users/' + uid + '/friends').once('value').then(function(snapshot){
+            if(snapshot.val()) {
+                res.status(REQUESTSUCCESSFUL).send(snapshot.val());
+              }
+            else {
+                res.status(REQUESTSUCCESSFUL).send({});
+              }
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+});
+
+app.get('/api/get_user_interests', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.read){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
+    var uid = req.query.uid;
+
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    databaseref.child('schools/' + school_identifier + '/users/' + uid + '/interests').once('value').then(function(snapshot){
+            if(snapshot.val()) {
+                res.status(REQUESTSUCCESSFUL).send(snapshot.val());
+              }
+            else {
+                res.status(REQUESTSUCCESSFUL).send({});
+              }
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+});
+
+app.get('/api/get_user_groups', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.read){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
+    var uid = req.query.uid;
+
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    databaseref.child('schools/' + school_identifier + '/users/' + uid + '/groups').once('value').then(function(snapshot){
+            if(snapshot.val()) {
+                res.status(REQUESTSUCCESSFUL).send(snapshot.val());
+              }
+            else {
+                res.status(REQUESTSUCCESSFUL).send({});
+              }
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+});
 
 app.post('/api/update_user_first_name', function(req, res){
   var token = req.query.token;
@@ -1465,6 +1623,7 @@ app.post('/api/update_user_last_logon', function(req, res){
 
 });
 
+
 //***************GROUP HANDLERS*************//
 
 app.get('/api/get_group', function(req, res){
@@ -1581,10 +1740,10 @@ app.post('/api/leave_group', function(req, res){
 
 });
 
+
 //***************FRIEND HANDLERS*************//
 
-/*
-app.post('/api/add_friend', function(req, res){
+app.post('/api/request_friend', function(req, res){
     var token = req.query.token;
 
     var auth = authenticateToken(token);
@@ -1613,11 +1772,98 @@ app.post('/api/add_friend', function(req, res){
         return;
     }
 
-    var friend_obj = {};
-    friend_obj[friend] = new Date().getTime() / 1000;
-    databaseref.child('schools').child(school_identifier).child('users').child(uid).child('friends').update(friend_obj);
-    res.status(REQUESTSUCCESSFUL).send("friend added");
-x
+    var current_time = new Date().getTime() / 1000;
+
+    databaseref.child('schools/' + school_identifier + '/users/' + uid + "/sent_friend_requests/" + friend).once('value').then(function(snapshot){
+            if(!snapshot.val()) {
+
+              databaseref.child('schools/' + school_identifier + '/users/' + uid + "/sent_friend_requests/" + friend).set(current_time);
+              databaseref.child('schools/' + school_identifier + '/users/' + friend + "/received_friend_requests/" + uid).set(current_time);
+
+              var notification = {
+                time_created: current_time*1.0,
+                type: NOTIFICATIONFRIENDREQUEST,
+                sender: uid
+              };
+
+              var notificationRef = databaseref.child('schools/' + school_identifier + '/notifications/' + friend).push(notification);
+              databaseref.child('schools/' + school_identifier + '/notifications/' + friend + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
+            }
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+    res.status(REQUESTSUCCESSFUL).send("success");
+
+});
+
+app.post('/api/approve_friend', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.write){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    var school_identifier = req.body['school_identifier'];
+    console.log(school_identifier);
+    var uid = req.body.uid;
+    var friend = req.body.friend;
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    if(!friend){
+        res.status(REQUESTBAD).send("invalid parameters: no friend");
+        return;
+    }
+
+    databaseref.child('schools/' + school_identifier + '/notifications/' + uid).once('value').then(function(snapshot){
+
+            console.log("Notifications: " + snapshot.val());
+
+            if(snapshot.val()) {
+
+              for (var notification_id in snapshot.val()) {
+
+                console.log("notification_id: " + notification_id);
+                console.log("notification type: " + snapshot.val()[notification_id]["type"]);
+                console.log("notification sender: " + snapshot.val()[notification_id]["sender"]);
+
+                if (snapshot.val()[notification_id]["type"] === NOTIFICATIONFRIENDREQUEST) {
+                  if (snapshot.val()[notification_id]["sender"] === friend) {
+                    databaseref.child('schools/' + school_identifier + '/notifications/' + uid + "/" + notification_id).remove();
+                  }
+                }
+              }
+
+            }
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+    var current_time = new Date().getTime() / 1000;
+
+    databaseref.child('schools/' + school_identifier + '/users/' + friend + "/sent_friend_requests/" + uid).remove();
+    databaseref.child('schools/' + school_identifier + '/users/' + uid + "/received_friend_requests/" + friend).remove();
+
+    databaseref.child('schools/' + school_identifier + '/users/' + uid + "/friends/" + friend).set(current_time);
+    databaseref.child('schools/' + school_identifier + '/users/' + friend + "/friends/" + uid).set(current_time);
+
+    res.status(REQUESTSUCCESSFUL).send("success");
+
 });
 
 app.post('/api/remove_friend', function(req, res){
@@ -1648,11 +1894,13 @@ app.post('/api/remove_friend', function(req, res){
         return;
     }
 
-    databaseref.child('schools').child(school_identifier).child('users').child(uid).child('friends').child(friend).remove();
+    databaseref.child('schools/' + school_identifier + '/users/' + uid + "/friends/" + friend).remove();
+    databaseref.child('schools/' + school_identifier + '/users/' + friend + "/friends/" + uid).remove();
+
     res.status(REQUESTSUCCESSFUL).send("friend removed");
 
 });
-*/
+
 
 //***************DISCUSSION HANDLERS*************//
 
@@ -1660,6 +1908,42 @@ app.post('/api/remove_friend', function(req, res){
 
 //***************NOTIFICATIONS HANDLERS*************//
 
+app.get('/api/get_notifications', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.read){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
+    var uid = req.query.uid;
+
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    databaseref.child('schools/' + school_identifier + '/notifications/' + uid).once('value').then(function(snapshot){
+            if(snapshot.val())
+                res.status(REQUESTSUCCESSFUL).send(snapshot.val());
+            else
+                res.status(REQUESTSUCCESSFUL).send({});
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+});
 
 
 //***************OLD*************//

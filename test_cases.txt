@@ -33,4 +33,10 @@ host_group_short_name
   	"school_identifier": "duke"
 }
 
+{
+	"uid": "user2",
+  	"school_identifier": "duke",
+  	"friend": "user1"
+}
+
 http://localhost:5000
