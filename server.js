@@ -1663,6 +1663,51 @@ app.get('/api/get_group', function(req, res){
 
 });
 
+app.get('/api/get_group_basic_info', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.read){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
+    var guid = req.query.guid;
+
+    if(!guid){
+        res.status(REQUESTBAD).send("invalid parameters: no guid");
+        return;
+    }
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    databaseref.child('schools/' + school_identifier + '/groups/' + guid).once('value').then(function(snapshot){
+            if(snapshot.val()) {
+              var basic_info = {
+                name: snapshot.val()["name"],
+                short_name: snapshot.val()["short_name"],
+                color: snapshot.val()["color"],
+                group_id: snapshot.val()["group_id"]
+              };
+              res.status(REQUESTSUCCESSFUL).send(basic_info);
+            }
+            else {
+                res.status(REQUESTSUCCESSFUL).send({});
+              }
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+});
+
 app.post('/api/join_group', function(req, res){
   var token = req.query.token;
 
