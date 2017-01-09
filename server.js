@@ -1074,7 +1074,8 @@ app.get('/api/get_user_basic_info', function(req, res){
                   major: snapshot.val()["major"],
                   academic_level: snapshot.val()["academic_level"],
                   hometown: snapshot.val()["hometown"],
-                  profile_image_url: snapshot.val()["profile_image_url"]
+                  profile_image_url: snapshot.val()["profile_image_url"],
+                  user_id: snapshot.val()["user_id"]
                 };
                 res.status(REQUESTSUCCESSFUL).send(basic_info);
               }
