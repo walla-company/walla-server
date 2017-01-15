@@ -531,23 +531,13 @@ app.post('/api/add_activity', function(req, res){
 
     newActivityRef.child('activity_id').set(auid);
 
-    databaseref.child('schools/' + school_identifier + '/users/' + host + '/activities').transaction(function(snapshot){
-        if(snapshot){
-            snapshot = snapshot.concat([auid]);
-        }else{
-            snapshot = [auid];
-        }
-
-        return snapshot;
-    });
-
     var current_time = new Date().getTime() / 1000;
 
     if (host_group != "") {
       databaseref.child('schools/' + school_identifier + '/groups/' + host_group + '/activities/' + auid).set(current_time);
     }
 
-    databaseref.child('schools/' + school_identifier + '/users/' + uid + '/activities/' + auid).set(current_time);
+    databaseref.child('schools/' + school_identifier + '/users/' + host + '/activities/' + auid).set(current_time);
 
     console.log('invited_users: ' + invited_users);
     console.log('invited_groups: ' + invited_groups);
