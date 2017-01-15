@@ -8,6 +8,7 @@ var TokenGenerator = require( 'token-generator' )({
 var nodemailer = require('nodemailer'); //npm install nodemailer --save
 var fs = require('fs');
 var bodyParser = require('body-parser');
+var randomcolor = require('randomcolor');
 
 //***************CONSTANTS*************//
 
@@ -294,7 +295,7 @@ app.post('/api/add_group', function(req, res){
 
     var name = req.body['name'];
     var short_name = req.body['short_name'];
-    var color = req.body['color'];
+    //var color = req.body['color'];
     var school_identifier = req.body['school_identifier'];
     var details = req.body['details'];
 
@@ -307,11 +308,11 @@ app.post('/api/add_group', function(req, res){
       res.status(REQUESTBAD).send("invalid parameters: no short name");
       return;
     }
-
+    /*
     if (!color) {
       res.status(REQUESTBAD).send("invalid parameters: no color");
       return;
-    }
+    }*/
 
     if (!school_identifier) {
       res.status(REQUESTBAD).send("invalid parameters: no school identifier");
@@ -326,7 +327,7 @@ app.post('/api/add_group', function(req, res){
     var group = {
       name: name,
       short_name: short_name,
-      color: color,
+      color: randomcolor.randomcolor(),
       details: details
     };
 

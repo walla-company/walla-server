@@ -13,7 +13,8 @@
     "token-generator": "*",
     "nodemailer": "*",
     "fs": "*",
-    "body-parser": "*"
+    "body-parser": "*",
+    "randomcolor": "*"
   },
   "keywords": [],
   "author": "",
