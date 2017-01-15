@@ -295,7 +295,6 @@ app.post('/api/add_group', function(req, res){
 
     var name = req.body['name'];
     var short_name = req.body['short_name'];
-    //var color = req.body['color'];
     var school_identifier = req.body['school_identifier'];
     var details = req.body['details'];
 
@@ -308,11 +307,6 @@ app.post('/api/add_group', function(req, res){
       res.status(REQUESTBAD).send("invalid parameters: no short name");
       return;
     }
-    /*
-    if (!color) {
-      res.status(REQUESTBAD).send("invalid parameters: no color");
-      return;
-    }*/
 
     if (!school_identifier) {
       res.status(REQUESTBAD).send("invalid parameters: no school identifier");
@@ -525,6 +519,8 @@ app.post('/api/add_activity', function(req, res){
       host: host,
       details: details,
       host_group: host_group,
+      host_group_name: host_group_name,
+      host_group_short_name: host_group_short_name,
       invited_users: invited_users,
       invited_groups: invited_groups,
       replies: reply
