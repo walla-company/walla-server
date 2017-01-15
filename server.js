@@ -327,7 +327,7 @@ app.post('/api/add_group', function(req, res){
     var group = {
       name: name,
       short_name: short_name,
-      color: randomcolor.randomcolor(),
+      color: randomcolor(),
       details: details
     };
 
