@@ -538,6 +538,8 @@ app.post('/api/add_activity', function(req, res){
     }
 
     databaseref.child('schools/' + school_identifier + '/users/' + host + '/activities/' + auid).set(current_time);
+    
+    databaseref.child('schools/' + school_identifier + '/users/' + host + '/calendar/' + auid).set(current_time);
 
     console.log('invited_users: ' + invited_users);
     console.log('invited_groups: ' + invited_groups);
