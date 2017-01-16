@@ -513,7 +513,7 @@ app.post('/api/add_activity', function(req, res){
         lat: location_lat * 1.0,
         long: location_long * 1.0
       },
-      public: activity_public == "true",
+      public: activity_public,
       can_others_invite: can_others_invite,
       interests: interests,
       host: host,
