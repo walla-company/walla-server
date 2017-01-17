@@ -1616,7 +1616,7 @@ app.post('/api/update_user_last_logon', function(req, res){
 
 //***************GROUP HANDLERS*************//
 
-app.get('/api/get_group', function(req, res){
+app.get('/api/get_groups', function(req, res){
     var token = req.query.token;
 
     var auth = authenticateToken(token);
