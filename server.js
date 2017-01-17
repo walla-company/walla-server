@@ -1628,6 +1628,36 @@ app.get('/api/get_group', function(req, res){
     incrementTokenCalls(token);
 
     var school_identifier = req.query.school_identifier;
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    databaseref.child('schools').child(school_identifier).child('groups').once('value').then(function(snapshot){
+            if(snapshot.val())
+                res.status(REQUESTSUCCESSFUL).send(snapshot.val());
+            else
+                res.status(REQUESTSUCCESSFUL).send({});
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+});
+
+app.get('/api/get_group', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.read){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
     var guid = req.query.guid;
 
     if(!guid){
