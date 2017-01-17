@@ -74,6 +74,8 @@ var deletepriv = [];
 var adminpriv = [];
 var verifypriv = [];
 
+var groups = {};
+
 var emailverificationtemplate;
 var apikeytemplate;
 
@@ -1805,6 +1807,58 @@ app.post('/api/leave_group', function(req, res){
 
 });
 
+//***************DISCOVER HANDLERS*************//
+
+app.get('/api/get_suggested_groups', function(req, res){
+  var token = req.query.token;
+
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
+
+  incrementTokenCalls(token);
+
+  var school_identifier = req.query['school_identifier'];
+
+  if(!school_identifier){
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+  }
+
+  databaseref.child('schools').child(school_identifier).child('groups').once('value').then(function(snapshot){
+            if(snapshot.val())
+                sortAndSendGroups(snapshot.val(), res);
+            else
+                res.status(REQUESTSUCCESSFUL).send({});
+        }) 
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+
+});
+
+function sortAndSendGroups(groups, res){
+    var keyArr = Object.keys(groups);
+    shuffle(keyArr);
+    
+    var suggestedGroups = []; //top ten groups to be returned to the user
+    
+    for(i = 0; i < 10; i++){
+        suggestedGroups.push(groups[keyArr[i]]);
+    }
+    
+    res.status(REQUESTSUCCESSFUL).send(suggestedGroups);
+    
+}
+
+function shuffle(o){ //v1.0
+    for(var j, x, i = o.length; i; j = parseInt(Math.random() * i), x = o[--i], o[i] = o[j], o[j] = x);
+    return o;
+};
 
 //***************FRIEND HANDLERS*************//
 
