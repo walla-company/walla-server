@@ -2024,6 +2024,71 @@ function shuffle(o){ //v1.0
     return o;
 };
 
+app.get('/api/get_search_users_array', function(req, res){
+  var token = req.query.token;
+
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
+
+  incrementTokenCalls(token);
+
+  var school_identifier = req.query['school_identifier'];
+
+  if(!school_identifier){
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+  }
+
+  databaseref.child('schools').child(school_identifier).child('search_users_array').once('value').then(function(snapshot){
+            if(snapshot.val())
+                res.status(REQUESTSUCCESSFUL).send(snapshot.val());
+            else
+                res.status(REQUESTSUCCESSFUL).send({});
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+
+});
+
+app.get('/api/get_search_groups_array', function(req, res){
+  var token = req.query.token;
+
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
+
+  incrementTokenCalls(token);
+
+  var school_identifier = req.query['school_identifier'];
+
+  if(!school_identifier){
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+  }
+
+  databaseref.child('schools').child(school_identifier).child('search_groups_array').once('value').then(function(snapshot){
+            if(snapshot.val())
+                res.status(REQUESTSUCCESSFUL).send(snapshot.val());
+            else
+                res.status(REQUESTSUCCESSFUL).send({});
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+
+});
+
+
 //***************FRIEND HANDLERS*************//
 
 app.post('/api/request_friend', function(req, res){
