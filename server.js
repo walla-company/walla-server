@@ -540,18 +540,18 @@ app.post('/api/add_activity', function(req, res){
     }
 
     databaseref.child('schools/' + school_identifier + '/users/' + host + '/activities/' + auid).set(current_time);
-    
+
     databaseref.child('schools/' + school_identifier + '/users/' + host + '/calendar/' + auid).set(current_time);
 
     console.log('invited_users: ' + invited_users);
     console.log('invited_groups: ' + invited_groups);
 
     invited_users.forEach( function(uid) {
-      inviteUser(uid, school_identifier, auid);
+      inviteUser(uid, school_identifier, auid, title);
     });
 
     invited_groups.forEach( function(guid) {
-      inviteUser(guid, school_identifier, auid);
+      inviteUser(guid, school_identifier, auid, title);
     });
 
     res.status(REQUESTSUCCESSFUL).send('activity posted');
@@ -809,29 +809,44 @@ function compareActivities(a1, a2) {
 
 //***************INVITE HANDLERS*************//
 
-function inviteUser(uid, school_identifier, auid) {
+function inviteUser(uid, school_identifier, auid, activity_title) {
   console.log('Invite user: ' + uid);
 
-  var current_time = new Date().getTime() / 1000;
+  databaseref.child('schools/' + school_identifier + '/users/' + uid).once('value').then(function(snapshot){
 
-  var notification = {
-    time_created: current_time*1.0,
-    type: NOTIFICATIONUSERINVITED,
-    sender: uid,
-    auid: auid
-  };
+          console.log("User: " + snapshot.val());
 
-  var notificationRef = databaseref.child('schools/' + school_identifier + '/notifications/' + uid).push(notification);
-  databaseref.child('schools/' + school_identifier + '/notifications/' + uid + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
+          if (snapshot.val()) {
+
+            var current_time = new Date().getTime() / 1000;
+
+            var notification = {
+              time_created: current_time*1.0,
+              type: NOTIFICATIONUSERINVITED,
+              sender: uid,
+              activity_id: auid,
+              text: snapshot.val()["first_name"] + " " + snapshot.val()["last_name"] + " invited you to " + activity_title,
+              read: false,
+              profile_image_url: snapshot.val()["profile_image_url"]
+            };
+
+            var notificationRef = databaseref.child('schools/' + school_identifier + '/notifications/' + uid).push(notification);
+            databaseref.child('schools/' + school_identifier + '/notifications/' + uid + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
+
+          }
+      })
+      .catch(function(error){
+          res.status(REQUESTBAD).send(error);
+          console.log(error);
+  });
 }
 
-function inviteGroup(guid, school_identifier, auid) {
+function inviteGroup(guid, school_identifier, auid, activity_title) {
   console.log('Invite group: ' + guid);
-
-  var current_time = new Date().getTime() / 1000;
 
   databaseref.child('schools/' + school_identifier + '/groups/' + guid).once('value').then(function(snapshot){
 
+          var current_time = new Date().getTime() / 1000;
           console.log("Group: " + snapshot.val());
 
           if (snapshot.val()["members"] != null) {
@@ -841,9 +856,10 @@ function inviteGroup(guid, school_identifier, auid) {
                 time_created: current_time*1.0,
                 type: NOTIFICATIONGROUPINVITED,
                 sender: guid,
-                group_name: snapshot.val()["name"],
-                group_short_name: snapshot.val()["short_name"],
-                auid: auid
+                activity_id: auid,
+                text: snapshot.val()["name"] + " was invited to " + activity_title,
+                read: false,
+                profile_image_url: ""
               };
 
               var notificationRef = databaseref.child('schools/' + school_identifier + '/notifications/' + member_id).push(notification);
@@ -1832,7 +1848,7 @@ app.get('/api/get_suggested_groups', function(req, res){
                 sortAndSendGroups(snapshot.val(), res);
             else
                 res.status(REQUESTSUCCESSFUL).send({});
-        }) 
+        })
         .catch(function(error){
             res.status(REQUESTBAD).send(error);
             console.log(error);
@@ -1844,15 +1860,15 @@ app.get('/api/get_suggested_groups', function(req, res){
 function sortAndSendGroups(groups, res){
     var keyArr = Object.keys(groups);
     shuffle(keyArr);
-    
+
     var suggestedGroups = []; //top ten groups to be returned to the user
-    
+
     for(i = 0; i < 10; i++){
         suggestedGroups.push(groups[keyArr[i]]);
     }
-    
+
     res.status(REQUESTSUCCESSFUL).send(suggestedGroups);
-    
+
 }
 
 function shuffle(o){ //v1.0
@@ -1891,22 +1907,38 @@ app.post('/api/request_friend', function(req, res){
         return;
     }
 
-    var current_time = new Date().getTime() / 1000;
-
     databaseref.child('schools/' + school_identifier + '/users/' + uid + "/sent_friend_requests/" + friend).once('value').then(function(snapshot){
             if(!snapshot.val()) {
 
-              databaseref.child('schools/' + school_identifier + '/users/' + uid + "/sent_friend_requests/" + friend).set(current_time);
-              databaseref.child('schools/' + school_identifier + '/users/' + friend + "/received_friend_requests/" + uid).set(current_time);
+              databaseref.child('schools/' + school_identifier + '/users/' + uid).once('value').then(function(snapshot){
 
-              var notification = {
-                time_created: current_time*1.0,
-                type: NOTIFICATIONFRIENDREQUEST,
-                sender: uid
-              };
+                      console.log("User: " + snapshot.val());
 
-              var notificationRef = databaseref.child('schools/' + school_identifier + '/notifications/' + friend).push(notification);
-              databaseref.child('schools/' + school_identifier + '/notifications/' + friend + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
+                      if (snapshot.val()) {
+
+                        var current_time = new Date().getTime() / 1000;
+
+                        databaseref.child('schools/' + school_identifier + '/users/' + uid + "/sent_friend_requests/" + friend).set(current_time);
+                        databaseref.child('schools/' + school_identifier + '/users/' + friend + "/received_friend_requests/" + uid).set(current_time);
+
+                        var notification = {
+                          time_created: current_time*1.0,
+                          type: NOTIFICATIONFRIENDREQUEST,
+                          sender: uid,
+                          activity_id: "",
+                          text: snapshot.val()["first_name"] + " " + snapshot.val()["last_name"] + " sent you a friend request!",
+                          read: false,
+                          profile_image_url: ""
+                        };
+
+                        var notificationRef = databaseref.child('schools/' + school_identifier + '/notifications/' + friend).push(notification);
+                        databaseref.child('schools/' + school_identifier + '/notifications/' + friend + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
+                      }
+                  })
+                  .catch(function(error){
+                      res.status(REQUESTBAD).send(error);
+                      console.log(error);
+              });
             }
         })
         .catch(function(error){
@@ -1980,6 +2012,70 @@ app.post('/api/approve_friend', function(req, res){
 
     databaseref.child('schools/' + school_identifier + '/users/' + uid + "/friends/" + friend).set(current_time);
     databaseref.child('schools/' + school_identifier + '/users/' + friend + "/friends/" + uid).set(current_time);
+
+    res.status(REQUESTSUCCESSFUL).send("success");
+
+});
+
+app.post('/api/ignore_friend_request', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.write){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    var school_identifier = req.body['school_identifier'];
+    console.log(school_identifier);
+    var uid = req.body.uid;
+    var friend = req.body.friend;
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    if(!friend){
+        res.status(REQUESTBAD).send("invalid parameters: no friend");
+        return;
+    }
+
+    databaseref.child('schools/' + school_identifier + '/notifications/' + uid).once('value').then(function(snapshot){
+
+            console.log("Notifications: " + snapshot.val());
+
+            if(snapshot.val()) {
+
+              for (var notification_id in snapshot.val()) {
+
+                console.log("notification_id: " + notification_id);
+                console.log("notification type: " + snapshot.val()[notification_id]["type"]);
+                console.log("notification sender: " + snapshot.val()[notification_id]["sender"]);
+
+                if (snapshot.val()[notification_id]["type"] === NOTIFICATIONFRIENDREQUEST) {
+                  if (snapshot.val()[notification_id]["sender"] === friend) {
+                    databaseref.child('schools/' + school_identifier + '/notifications/' + uid + "/" + notification_id).remove();
+                  }
+                }
+              }
+
+            }
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+    var current_time = new Date().getTime() / 1000;
+
+    databaseref.child('schools/' + school_identifier + '/users/' + friend + "/sent_friend_requests/" + uid).remove();
+    databaseref.child('schools/' + school_identifier + '/users/' + uid + "/received_friend_requests/" + friend).remove();
 
     res.status(REQUESTSUCCESSFUL).send("success");
 
@@ -2064,6 +2160,39 @@ app.get('/api/get_notifications', function(req, res){
 
 });
 
+app.post('/api/update_notification_read', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.write){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    var school_identifier = req.body.school_identifier;
+    var notification_id = req.body.notification_id;
+    var read = req.body.read;
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    if(!notification_id){
+        res.status(REQUESTBAD).send("invalid parameters: no notification identifier");
+        return;
+    }
+
+    if(read == null){
+        res.status(REQUESTBAD).send("invalid parameters: no read");
+        return;
+    }
+
+    databaseref.child('schools/' + school_identifier + '/notifications/' + notification_id + "/read").set(read);
+
+    res.status(REQUESTSUCCESSFUL).send("read updated");
+
+});
 
 //***************OLD*************//
 
