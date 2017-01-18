@@ -502,6 +502,19 @@ app.post('/api/add_activity', function(req, res){
       return;
     }
 
+    var current_time = new Date().getTime() / 1000;
+
+    var inivted_users_dic = {};
+    var invited_groups_dic = {};
+
+    invited_users.forEach( function(uid) {
+      inivted_users_dic[uid] = current_time;
+    });
+
+    invited_groups.forEach( function(guid) {
+      invited_groups_dic[guid] = current_time;
+    });
+
     var reply = {};
     reply[host] = "going";
 
@@ -523,8 +536,8 @@ app.post('/api/add_activity', function(req, res){
       host_group: host_group,
       host_group_name: host_group_name,
       host_group_short_name: host_group_short_name,
-      invited_users: invited_users,
-      invited_groups: invited_groups,
+      invited_users: invited_users_dic,
+      invited_groups: invited_groups_dic,
       replies: reply
     };
 
@@ -532,8 +545,6 @@ app.post('/api/add_activity', function(req, res){
     var auid = newActivityRef.key;
 
     newActivityRef.child('activity_id').set(auid);
-
-    var current_time = new Date().getTime() / 1000;
 
     if (host_group != "") {
       databaseref.child('schools/' + school_identifier + '/groups/' + host_group + '/activities/' + auid).set(current_time);
