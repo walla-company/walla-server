@@ -1322,6 +1322,45 @@ app.get('/api/get_user_groups', function(req, res){
 
 });
 
+app.get('/api/get_user_calendar', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.read){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
+    var uid = req.query.uid;
+
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    databaseref.child('schools/' + school_identifier + '/users/' + uid + '/calendar').once('value').then(function(snapshot){
+            if(snapshot.val()) {
+                res.status(REQUESTSUCCESSFUL).send(snapshot.val());
+              }
+            else {
+                res.status(REQUESTSUCCESSFUL).send({});
+              }
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+});
+
 app.post('/api/update_user_first_name', function(req, res){
   var token = req.query.token;
 
