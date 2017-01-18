@@ -806,11 +806,6 @@ app.post('/api/invite_user', function(req, res){
       return;
   }
 
-  if (!title) {
-    res.status(REQUESTBAD).send("invalid parameters: no title");
-    return;
-  }
-
   databaseref.child('schools/' + school_identifier + '/activities/' + auid).once('value').then(function(snapshot){
 
           console.log("Activity: " + snapshot.val());
@@ -857,11 +852,6 @@ app.post('/api/invite_group', function(req, res){
   if(!auid){
       res.status(REQUESTBAD).send("invalid parameters: no auid");
       return;
-  }
-
-  if (!title) {
-    res.status(REQUESTBAD).send("invalid parameters: no title");
-    return;
   }
 
   databaseref.child('schools/' + school_identifier + '/activities/' + auid).once('value').then(function(snapshot){
