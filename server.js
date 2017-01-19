@@ -1973,6 +1973,39 @@ app.post('/api/leave_group', function(req, res){
 
 //***************DISCOVER HANDLERS*************//
 
+app.get('/api/get_suggested_users', function(req, res){
+  var token = req.query.token;
+
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
+
+  incrementTokenCalls(token);
+
+  var school_identifier = req.query['school_identifier'];
+
+  if(!school_identifier){
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+  }
+
+  databaseref.child('schools').child(school_identifier).child('users').once('value').then(function(snapshot){
+            if(snapshot.val())
+                sortAndSendUsers(snapshot.val(), res);
+            else
+                res.status(REQUESTSUCCESSFUL).send({});
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+
+});
+
+
 app.get('/api/get_suggested_groups', function(req, res){
   var token = req.query.token;
 
@@ -2011,11 +2044,27 @@ function sortAndSendGroups(groups, res){
 
     var suggestedGroups = []; //top ten groups to be returned to the user
 
-    for(i = 0; i < 10; i++){
+    var sml = keyArr.length > 10 ? 10 : keyArr.length;
+    for(i = 0; i < sml; i++){
         suggestedGroups.push(groups[keyArr[i]]);
     }
 
     res.status(REQUESTSUCCESSFUL).send(suggestedGroups);
+
+}
+
+function sortAndSendUsers(users, res){
+    var keyArr = Object.keys(users);
+    shuffle(keyArr);
+
+    var suggestedUsers = []; //top ten groups to be returned to the user
+
+    var sml = keyArr.length > 10 ? 10 : keyArr.length;
+    for(i = 0; i < sml; i++){
+        suggestedUsers.push(users[keyArr[i]]);
+    }
+
+    res.status(REQUESTSUCCESSFUL).send(suggestedUsers);
 
 }
 
