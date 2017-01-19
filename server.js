@@ -504,11 +504,11 @@ app.post('/api/add_activity', function(req, res){
 
     var current_time = new Date().getTime() / 1000;
 
-    var inivted_users_dic = {};
+    var invited_users_dic = {};
     var invited_groups_dic = {};
 
     invited_users.forEach( function(uid) {
-      inivted_users_dic[uid] = current_time;
+      invited_users_dic[uid] = current_time;
     });
 
     invited_groups.forEach( function(guid) {
