@@ -2190,7 +2190,7 @@ app.post('/api/request_friend', function(req, res){
                           activity_id: "",
                           text: snapshot.val()["first_name"] + " " + snapshot.val()["last_name"] + " sent you a friend request!",
                           read: false,
-                          profile_image_url: ""
+                          profile_image_url: snapshot.val()["profile_image_url"]
                         };
 
                         var notificationRef = databaseref.child('schools/' + school_identifier + '/notifications/' + friend).push(notification);
