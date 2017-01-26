@@ -887,23 +887,31 @@ function compareActivities(a1, a2) {
   var a1_num_going = 0;
   var a1_num_interested = 0;
 
-  Object.keys(a1['replies']).forEach( function(key) {
-    if (a1['replies'][key] == "going") {
-      a1_num_going++;
-    } else { a1_num_interested++;
-    }
-  });
+  if(a1 && a1['replies']){
+      Object.keys(a1['replies']).forEach( function(key) {
+        if (a1['replies'][key] == "going") {
+          a1_num_going++;
+        } else { a1_num_interested++;
+        }
+      });
+  }else{
+      return 0;
+  }
 
   var a2_num_going = 0;
   var a2_num_interested = 0;
 
-  Object.keys(a2['replies']).forEach( function(key) {
-    if (a2['replies'][key] == "going") {
-      a2_num_going++;
-    } else {
-      a2_num_interested++;
-    }
-  });
+  if(a2 && a2['replies'])  {
+      Object.keys(a2['replies']).forEach( function(key) {
+        if (a2['replies'][key] == "going") {
+          a2_num_going++;
+        } else {
+          a2_num_interested++;
+        }
+      });
+  }else{
+      return 0;
+  }
 
   var now = new Date().getTime() / 1000;
 
