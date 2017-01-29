@@ -558,11 +558,11 @@ app.post('/api/add_activity', function(req, res){
     console.log('invited_groups: ' + invited_groups);
 
     invited_users.forEach( function(uid) {
-      inviteUser(uid, school_identifier, auid, title);
+      inviteUser(host, uid, school_identifier, auid, title);
     });
 
     invited_groups.forEach( function(guid) {
-      inviteUser(guid, school_identifier, auid, title);
+      inviteGroup(guid, school_identifier, auid, title);
     });
 
     res.status(REQUESTSUCCESSFUL).send('activity posted');
@@ -787,6 +787,7 @@ app.post('/api/invite_user', function(req, res){
 
   incrementTokenCalls(token);
 
+  var sender = req.body['sender'];
   var uid = req.body['uid'];
   var school_identifier = req.body['school_identifier'];
   var auid = req.body['auid'];
@@ -812,7 +813,7 @@ app.post('/api/invite_user', function(req, res){
 
           if (snapshot.val()) {
 
-            inviteUser(uid, school_identifier, auid, snapshot.val()["title"]);
+            inviteUser(sender, uid, school_identifier, auid, snapshot.val()["title"]);
           }
       })
       .catch(function(error){
@@ -924,37 +925,59 @@ function compareActivities(a1, a2) {
 
 //***************INVITE HANDLERS*************//
 
-function inviteUser(uid, school_identifier, auid, activity_title) {
-  console.log('Invite user: ' + uid);
+function inviteUser(sender, uid, school_identifier, auid, activity_title) {
+    console.log('Invite user: ' + uid);
 
-  databaseref.child('schools/' + school_identifier + '/users/' + uid).once('value').then(function(snapshot){
+    if (sender) {
+        databaseref.child('schools/' + school_identifier + '/users/' + sender).once('value').then(function(snapshot){
 
-          console.log("User: " + snapshot.val());
+        console.log("User: " + snapshot.val());
 
-          if (snapshot.val()) {
+            if (snapshot.val()) {
+                
+                var current_time = new Date().getTime() / 1000;
 
-            var current_time = new Date().getTime() / 1000;
+                var notification = {
+                  time_created: current_time*1.0,
+                  type: NOTIFICATIONUSERINVITED,
+                  sender: uid,
+                  activity_id: auid,
+                  text: snapshot.val()["first_name"] + " " + snapshot.val()["last_name"] + " invited you to " + activity_title,
+                  read: false,
+                  profile_image_url: snapshot.val()["profile_image_url"]
+                };
 
-            var notification = {
-              time_created: current_time*1.0,
-              type: NOTIFICATIONUSERINVITED,
-              sender: uid,
-              activity_id: auid,
-              text: snapshot.val()["first_name"] + " " + snapshot.val()["last_name"] + " invited you to " + activity_title,
-              read: false,
-              profile_image_url: snapshot.val()["profile_image_url"]
-            };
+                var notificationRef = databaseref.child('schools/' + school_identifier + '/notifications/' + uid).push(notification);
+                databaseref.child('schools/' + school_identifier + '/notifications/' + uid + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
 
-            var notificationRef = databaseref.child('schools/' + school_identifier + '/notifications/' + uid).push(notification);
-            databaseref.child('schools/' + school_identifier + '/notifications/' + uid + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
+                databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/invited_users/' + uid).set(current_time);
+              }
+          })
+          .catch(function(error){
+              res.status(REQUESTBAD).send(error);
+              console.log(error);
+      });
+    }
+    else {
 
-            databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/invited_users/' + uid).set(current_time);
-          }
-      })
-      .catch(function(error){
-          res.status(REQUESTBAD).send(error);
-          console.log(error);
-  });
+        var current_time = new Date().getTime() / 1000;
+
+        var notification = {
+                  time_created: current_time*1.0,
+                  type: NOTIFICATIONUSERINVITED,
+                  sender: uid,
+                  activity_id: auid,
+                  text: "You were invited to " + activity_title,
+                  read: false,
+                  profile_image_url: snapshot.val()["profile_image_url"]
+        };
+
+        var notificationRef = databaseref.child('schools/' + school_identifier + '/notifications/' + uid).push(notification);
+                databaseref.child('schools/' + school_identifier + '/notifications/' + uid + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
+
+        databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/invited_users/' + uid).set(current_time);
+        
+    }
 }
 
 function inviteGroup(guid, school_identifier, auid, activity_title) {
