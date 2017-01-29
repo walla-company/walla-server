@@ -57,10 +57,10 @@ app.listen(app.get('port'), function() {
 
 //setup for email
 var transporter = nodemailer.createTransport({
-        service: 'Aol',
+        service: 'Google',
         auth: {
-            user: 'wallaapitesting@aol.com', // Your email id
-            pass: 'nodemailer' // Your password
+            user: 'wallanoreply@aol.com', // Your email id
+            pass: 'graysonisthegoat' // Your password
         }
 });
 
@@ -2560,6 +2560,171 @@ app.post('/api/update_notification_read', function(req, res){
 
 });
 
+//***************VERIFICATION HANDLERS*************//
+
+app.get('/api/verify', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.verify){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    var school = req.query.domain;
+    if(!school){
+        res.status(REQUESTBAD).send("invalid parameters: no domain");
+        return;
+    }
+
+    var uid = req.query.uid;
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    var hash = req.query.hash;
+    if(!hash){
+        res.status(REQUESTBAD).send("invalid parameters: no hash");
+        return;
+    }
+   verifyUser(school, uid, hash, res);
+
+});
+
+app.get('/welcome', function(req, res){
+    fs.readFile('emailverification.html', function (err, data){
+        res.writeHead(200, {'Content-Type': 'text/html','Content-Length':data.length});
+        res.write(data);
+        res.end();
+    });
+});
+
+app.post('/api/request_verification', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.write){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    var school = req.query['school_identifier'];
+    if(!school){
+        res.status(REQUESTBAD).send("invalid parameters: no domain");
+        return;
+    }
+
+
+    var email = req.query['email'];
+    if(!email){
+        res.status(REQUESTBAD).send("invalid parameters: no email");
+        return;
+    }
+
+    var uid = req.query['uid'];
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    sendVerificationEmail(email, uid, school, res);
+});
+
+function verifyUser(school, uid, hash, res){
+    databaseref.child('schools').child(school).child('users').child(uid).once('value').then(function(snapshot){
+        var user = snapshot.val();
+        if(user){
+            var userhash = user.hash;
+            if(userhash || user.verified == true){
+                if(userhash == hash || user.verified == true){
+                    databaseref.child('schools').child(school).child('users').child(uid).child('verified').set(true);
+                    databaseref.child('schools').child(school).child('users').child(uid).child('hash').remove();
+                    res.redirect('/welcome');
+                }else{
+                    res.status(REQUESTFORBIDDEN).send('could not authenticate request');
+                }
+            }else{
+                res.status(REQUESTFORBIDDEN).send('could not authenticate request');
+            }
+        }else{
+            res.status(REQUESTNOTFOUND).send('user not found');
+        }
+    });
+}
+
+function sendVerificationEmail(email, uid, domain, res){
+    if(!emailverificationtemplate){
+        setTimeout(() => sendVerificationEmail(email, uid), 3000);
+    }else{
+        var hash = TokenGenerator.generate();
+        databaseref.child('schools').child(domain).child('users').child(uid).once('value').then(function(snapshot){
+            var user = snapshot.val();
+            if(user){
+                databaseref.child('schools').child(domain).child('users').child(uid).child('hash').set(hash);
+
+                var verifyurl = WEBSITE + '/api/verify?domain=' + domain + '&uid=' + uid + '&token=' + '969d-dFN2m-2mN' + "&hash=" + hash;
+                var mailOptions = {
+                    from: '"Walla" <wallanoreply@aol.com>', // sender address
+                    to: email, // list of receivers
+                    subject: 'Verify email', // Subject line
+                    html: emailverificationtemplate.replace(/verify-url-here/, verifyurl)
+                };
+
+            transporter.sendMail(mailOptions, function(error, info){
+                if(error){
+                    return console.log(error);
+                    res.status(REQUESTBAD).send(error);
+                }
+                console.log('Message sent: ' + info.response);
+                res.status(REQUESTSUCCESSFUL).send('email sent');
+            });
+
+            }else{
+                res.status(REQUESTNOTFOUND).send('user not found');
+            }
+        });
+
+    }
+}
+
+app.get('/api/get_user_verified', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.read){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
+    var uid = req.query.uid;
+
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    databaseref.child('schools/' + school_identifier + '/users/' + uid + '/verified').once('value').then(function(snapshot){
+            if(snapshot.val())
+                res.status(REQUESTSUCCESSFUL).send(snapshot.val());
+            else
+                res.status(REQUESTSUCCESSFUL).send({});
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+});
+
 //***************OLD*************//
 
 //.../api/min_version?platform=android
@@ -2746,75 +2911,6 @@ app.post('/api/report_post', function(req, res){
 
 });
 
-app.post('/api/request_verification', function(req, res){
-    var token = req.query.token;
-
-    var auth = authenticateToken(token);
-    if(!auth.admin && !auth.write){
-         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
-        return;
-    }
-
-    var school = req.query.domain;
-    if(!school){
-        res.status(REQUESTBAD).send("invalid parameters: no domain");
-        return;
-    }
-
-
-    var email = req.query.email;
-    if(!email){
-        res.status(REQUESTBAD).send("invalid parameters: no email");
-        return;
-    }
-
-    var uid = req.query.uid;
-    if(!uid){
-        res.status(REQUESTBAD).send("invalid parameters: no uid");
-        return;
-    }
-
-    sendVerificationEmail(email, uid, school, res);
-});
-
-app.get('/api/verify', function(req, res){
-    var token = req.query.token;
-
-    var auth = authenticateToken(token);
-    if(!auth.verify){
-         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
-        return;
-    }
-
-    var school = req.query.domain;
-    if(!school){
-        res.status(REQUESTBAD).send("invalid parameters: no domain");
-        return;
-    }
-
-    var uid = req.query.uid;
-    if(!uid){
-        res.status(REQUESTBAD).send("invalid parameters: no uid");
-        return;
-    }
-
-    var hash = req.query.hash;
-    if(!hash){
-        res.status(REQUESTBAD).send("invalid parameters: no hash");
-        return;
-    }
-   verifyUser(school, uid, hash, res);
-
-});
-
-app.get('/welcome', function(req, res){
-    fs.readFile('emailverification.html', function (err, data){
-        res.writeHead(200, {'Content-Type': 'text/html','Content-Length':data.length});
-        res.write(data);
-        res.end();
-    });
-});
-
 //***************HELPER FUNCTIONS*************//
 
 function domainAllowed(domain){
@@ -2823,28 +2919,6 @@ function domainAllowed(domain){
     }
 
     return false;
-}
-
-function verifyUser(school, uid, hash, res){
-    databaseref.child(school).child('users').child(uid).once('value').then(function(snapshot){
-        var user = snapshot.val();
-        if(user){
-            var userhash = user.hash;
-            if(userhash || user.verified == true){
-                if(userhash == hash || user.verified == true){
-                    databaseref.child(school).child('users').child(uid).child('verified').set(true);
-                    databaseref.child(school).child('users').child(uid).child('hash').remove();
-                    res.redirect('/welcome');
-                }else{
-                    res.status(REQUESTFORBIDDEN).send('could not authenticate request');
-                }
-            }else{
-                res.status(REQUESTFORBIDDEN).send('could not authenticate request');
-            }
-        }else{
-            res.status(REQUESTNOTFOUND).send('user not found');
-        }
-    });
 }
 
 function findPostToReport(uid, key, domain, res){
@@ -2996,7 +3070,7 @@ function sendTokenViaEmail(token, email, name, auth){
     }
 
     var mailOptions = {
-        from: '"Walla API" <wallaapitesting@aol.com>', // sender address
+        from: '"Walla API" <wallanoreply@aol.com>', // sender address
         to: email, // list of receivers
         subject: 'Walla API', // Subject line
         html: apikeytemplate.replace(/permissions-go-here/, permissions).replace(/name-goes-here/, name).replace(/token-goes-here/, token)
@@ -3008,41 +3082,6 @@ function sendTokenViaEmail(token, email, name, auth){
         }
         console.log('Message sent: ' + info.response);
     });
-}
-
-function sendVerificationEmail(email, uid, domain, res){
-    if(!emailverificationtemplate){
-        setTimeout(() => sendVerificationEmail(email, uid), 3000);
-    }else{
-        var hash = TokenGenerator.generate();
-        databaseref.child(domain).child('users').child(uid).once('value').then(function(snapshot){
-            var user = snapshot.val();
-            if(user){
-                databaseref.child(domain).child('users').child(uid).child('hash').set(hash);
-
-                var verifyurl = WEBSITE + '/api/verify?domain=' + domain + '&uid=' + uid + '&token=' + '969d-dFN2m-2mN' + "&hash=" + hash;
-                var mailOptions = {
-                    from: '"Walla" <wallaapitesting@aol.com>', // sender address
-                    to: email, // list of receivers
-                    subject: 'Verify email', // Subject line
-                    html: emailverificationtemplate.replace(/verify-url-here/, verifyurl)
-                };
-
-            transporter.sendMail(mailOptions, function(error, info){
-                if(error){
-                    return console.log(error);
-                    res.status(REQUESTBAD).send(error);
-                }
-                console.log('Message sent: ' + info.response);
-                res.status(REQUESTSUCCESSFUL).send('email sent');
-            });
-
-            }else{
-                res.status(REQUESTNOTFOUND).send('user not found');
-            }
-        });
-
-    }
 }
 
 function sendUsersAttending(att, attendees, school, res){
