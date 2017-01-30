@@ -2560,6 +2560,76 @@ app.post('/api/update_notification_read', function(req, res){
 
 });
 
+app.post('/api/add_notification_token', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.write){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    var school_identifier = req.body.school_identifier;
+    var uid = req.body.uid;
+    var token = req.body.token;
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    if(!token){
+        res.status(REQUESTBAD).send("invalid parameters: no token");
+        return;
+    }
+
+    var current_time = new Date().getTime() / 1000;
+    databaseref.child('schools/' + school_identifier + '/users/' + uid + "/notification_tokens/" + token).set(current_time);
+
+    res.status(REQUESTSUCCESSFUL).send("notification token added");
+
+});
+
+app.post('/api/remove_notification_token', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.write){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    var school_identifier = req.body.school_identifier;
+    var uid = req.body.uid;
+    var token = req.body.token;
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    if(!token){
+        res.status(REQUESTBAD).send("invalid parameters: no token");
+        return;
+    }
+
+    var current_time = new Date().getTime() / 1000;
+    databaseref.child('schools/' + school_identifier + '/users/' + uid + "/notification_tokens/" + token).remove();
+
+    res.status(REQUESTSUCCESSFUL).send("notification token removed");
+
+});
+
 //***************VERIFICATION HANDLERS*************//
 
 app.get('/api/verify', function(req, res){
