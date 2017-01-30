@@ -2668,7 +2668,7 @@ function sendVerificationEmail(email, uid, domain, res){
                 
                 databaseref.child('schools').child(domain).child('users').child(uid).child('hash').set(hash);
 
-                var verifyurl = WEBSITE + '/api/verify?domain=' + domain + '&uid=' + uid + '&token=' + '969d-dFN2m-2mN' + "&hash=" + hash;
+                var verifyurl = WEBSITE + '/api/verify?domain=' + domain + '&uid=' + uid + '&token=' + '34c27dF4ad7X72' + "&hash=" + hash;
                 var mailOptions = {
                     from: '"Walla" <wallanoreply@aol.com>', // sender address
                     to: email, // list of receivers
