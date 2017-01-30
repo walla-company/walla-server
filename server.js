@@ -57,7 +57,7 @@ app.listen(app.get('port'), function() {
 
 //setup for email
 var transporter = nodemailer.createTransport({
-        service: 'Google',
+        service: 'Aol',
         auth: {
             user: 'wallanoreply@aol.com', // Your email id
             pass: 'graysonisthegoat' // Your password
@@ -2653,6 +2653,9 @@ function verifyUser(school, uid, hash, res){
 }
 
 function sendVerificationEmail(email, uid, domain, res){
+    
+    console.log("Verify: " + email + ", " + domain + ", " + uid);
+    
     if(!emailverificationtemplate){
         setTimeout(() => sendVerificationEmail(email, uid), 3000);
     }else{
@@ -2660,6 +2663,9 @@ function sendVerificationEmail(email, uid, domain, res){
         databaseref.child('schools').child(domain).child('users').child(uid).once('value').then(function(snapshot){
             var user = snapshot.val();
             if(user){
+                
+                console.log("User exists");
+                
                 databaseref.child('schools').child(domain).child('users').child(uid).child('hash').set(hash);
 
                 var verifyurl = WEBSITE + '/api/verify?domain=' + domain + '&uid=' + uid + '&token=' + '969d-dFN2m-2mN' + "&hash=" + hash;
@@ -2672,8 +2678,9 @@ function sendVerificationEmail(email, uid, domain, res){
 
             transporter.sendMail(mailOptions, function(error, info){
                 if(error){
-                    return console.log(error);
+                    console.log(error);
                     res.status(REQUESTBAD).send(error);
+                    return
                 }
                 console.log('Message sent: ' + info.response);
                 res.status(REQUESTSUCCESSFUL).send('email sent');
