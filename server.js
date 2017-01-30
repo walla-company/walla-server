@@ -2609,20 +2609,19 @@ app.post('/api/request_verification', function(req, res){
         return;
     }
 
-    var school = req.query['school_identifier'];
+    var school = req.body['school_identifier'];
     if(!school){
         res.status(REQUESTBAD).send("invalid parameters: no domain");
         return;
     }
 
-
-    var email = req.query['email'];
+    var email = req.body['email'];
     if(!email){
         res.status(REQUESTBAD).send("invalid parameters: no email");
         return;
     }
 
-    var uid = req.query['uid'];
+    var uid = req.body['uid'];
     if(!uid){
         res.status(REQUESTBAD).send("invalid parameters: no uid");
         return;
