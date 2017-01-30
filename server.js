@@ -2713,8 +2713,9 @@ app.get('/api/get_user_verified', function(req, res){
     }
 
     databaseref.child('schools/' + school_identifier + '/users/' + uid + '/verified').once('value').then(function(snapshot){
-            if(snapshot.val())
-                res.status(REQUESTSUCCESSFUL).send(snapshot.val());
+            console.log("get_user_verified: " + snapshot.val());
+            if(snapshot.val() != null)
+                res.status(REQUESTSUCCESSFUL).send({verified: snapshot.val()});
             else
                 res.status(REQUESTSUCCESSFUL).send({});
         })
