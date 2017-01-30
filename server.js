@@ -2627,6 +2627,8 @@ app.post('/api/request_verification', function(req, res){
         return;
     }
 
+    databaseref.child('schools').child(school).child('users').child(uid).child('email').set(email);
+    
     sendVerificationEmail(email, uid, school, res);
 });
 
