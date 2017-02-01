@@ -83,18 +83,33 @@ var apikeytemplate;
 //***************AUTHENTICATION*************//
 
 // Initialize Firebase
-var config = {
-    apiKey: "AIzaSyDly8Ewgiyhb14hHbHiSnLcu6zUOvEbuF0",
-    authDomain: "walla-launch.firebaseapp.com",
-    databaseURL: "https://walla-launch.firebaseio.com",
-    storageBucket: "walla-launch.appspot.com",
-    messagingSenderId: "261500518113"
-};
 
-var defaultApp = admin.initializeApp({
-  credential: admin.credential.cert("admin/serviceAccountKey.json"),
-  databaseURL: "https://walla-launch.firebaseio.com"
-});
+var useLocal = false;
+
+// var config = ;
+var config = useLocal ? {
+                            apiKey: "AIzaSyBuYG5jxqySNrrLdJSU0hAX2S3GAs-zrUo",
+                            authDomain: "walla-server-test.firebaseapp.com",
+                            databaseURL: "https://walla-server-test.firebaseio.com",
+                            storageBucket: "walla-server-test.appspot.com",
+                            messagingSenderId: "40193027451"
+                        } : {
+                            apiKey: "AIzaSyDly8Ewgiyhb14hHbHiSnLcu6zUOvEbuF0",
+                            authDomain: "walla-launch.firebaseapp.com",
+                            databaseURL: "https://walla-launch.firebaseio.com",
+                            storageBucket: "walla-launch.appspot.com",
+                            messagingSenderId: "261500518113"
+                        };
+
+
+// var defaultApp = admin.initializeApp();
+var defaultApp = admin.initializeApp(useLocal ? {
+                                                    credential: admin.credential.cert("admin/serviceAccountKey.json"),
+                                                    databaseURL: "https://walla-server-test.firebaseio.com"
+                                                } : {
+                                                    credential: admin.credential.cert("admin/serviceAccountKey.json"),
+                                                    databaseURL: "https://walla-launch.firebaseio.com"
+                                                });
 
 var defaultAuth = defaultApp.auth();
 var database = defaultApp.database();
@@ -3240,23 +3255,26 @@ adminServer(function(appData) { //Initialize Admin Web Manager Api
 
     //Users
     
-    appData.appAdmin.get('/api/users', isAuthenticated, function(req, res){
-        console.log(req.user);
-        databaseref.child('schools/duke/users').once('value').then(function(snapshot){
-                var array = snapshot.val();
-                if(array){
-                    var usersWithEmail = {};
-                    for (var id in array)
-                        if (array.hasOwnProperty(id) && array[id].email)
-                            usersWithEmail[id] = array[id];
-                    res.status(REQUESTSUCCESSFUL).send(usersWithEmail);
-                }
-                else
-                    res.status(REQUESTSUCCESSFUL).send({});
-            })
-            .catch(function(error){
-                res.status(REQUESTBAD).send(error);
-                console.log(error);
-            });
+    appData.appAdmin.get('/api/users', function(req, res){
+        // console.log(req.user);
+        databaseref.child('app_settings/api_keys').once('value').then(function(snapshot){
+            console.log(snapshot.val());
+        });
+        // databaseref.child('schools/duke/users').once('value').then(function(snapshot){
+        //         var array = snapshot.val();
+        //         if(array){
+        //             var usersWithEmail = {};
+        //             for (var id in array)
+        //                 if (array.hasOwnProperty(id) && array[id].email)
+        //                     usersWithEmail[id] = array[id];
+        //             res.status(REQUESTSUCCESSFUL).send(usersWithEmail);
+        //         }
+        //         else
+        //             res.status(REQUESTSUCCESSFUL).send({});
+        //     })
+        //     .catch(function(error){
+        //         res.status(REQUESTBAD).send(error);
+        //         console.log(error);
+        //     });
     });
 });
