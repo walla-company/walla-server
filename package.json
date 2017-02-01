@@ -7,14 +7,15 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "body-parser": "*",
     "express": "*",
+    "express-jwt-session": "^1.0.1",
     "firebase": "*",
     "firebase-admin": "*",
-    "token-generator": "*",
-    "nodemailer": "*",
     "fs": "*",
-    "body-parser": "*",
-    "randomcolor": "*"
+    "nodemailer": "*",
+    "randomcolor": "*",
+    "token-generator": "*"
   },
   "keywords": [],
   "author": "",

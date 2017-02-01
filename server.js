@@ -1,4 +1,5 @@
 var express = require('express'); //npm install express --save
+var jws = require('express-jwt-session'); //npm install express-jwt-session --save
 var firebase = require('firebase'); //npm install firebase --save
 var admin = require('firebase-admin'); //npm install firebase-admin --save
 var TokenGenerator = require( 'token-generator' )({
@@ -9,6 +10,7 @@ var nodemailer = require('nodemailer'); //npm install nodemailer --save
 var fs = require('fs');
 var bodyParser = require('body-parser');
 var randomcolor = require('randomcolor');
+var adminServer = require('./admin-server'); //Admin web manager server
 
 //***************CONSTANTS*************//
 
@@ -46,7 +48,6 @@ app.set('port', (process.env.PORT || 8080));
 app.use(express.static(__dirname + '/public'));
 
 app.use(bodyParser.json());
-
 // views is directory for all template files
 app.set('views', __dirname + '/views');
 app.set('view engine', 'ejs');
@@ -3184,3 +3185,78 @@ function sendUsersAttending(att, attendees, school, res){
         console.log(error)
      })
 }
+
+
+adminServer(function(appData) { //Initialize Admin Web Manager Api
+    //Authentication
+
+    var isAuthenticated = jws.isAuthenticated(appData.appAdminSecret);
+
+    appData.appAdmin.post('/api/token', function(req, res) {
+        var email = req.body['email'];
+        var password = req.body['password'];
+
+        if (!email) {
+            res.status(REQUESTBAD).send("invalid parameters: no email");
+            return;
+        } else email = email.toLowerCase();
+
+        if (!password) {
+            res.status(REQUESTBAD).send("invalid parameters: no password");
+            return;
+        }
+
+        //look for school_identifier from domains
+        var school_identifier, emailDomain = email.substring(email.indexOf('@') + 1);
+        for (var id in domains)
+            if (domains.hasOwnProperty(id) && domains[id].domain.toLowerCase() === emailDomain)
+                school_identifier = id;
+            
+        if (!school_identifier) {
+            res.status(REQUESTBAD).send("invalid parameters: email domain not found");
+            return;
+        }
+        
+        databaseref.child('schools/' + school_identifier + '/users').once('value').then(function(snapshot) {
+            var user, users = snapshot.val();
+            if (users) {
+                for (var id in users)
+                    if (users.hasOwnProperty(id) && users[id].email.toLowerCase() === email)
+                        user = users[id];
+            }
+            
+            if (user) {
+                user.token = jws.signToken(user, appData.appAdminSecret, appData.appTokenSessionTime);
+                res.json(user);
+            } else {
+                res.status(REQUESTFORBIDDEN).send('Email not found.');
+            }
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+        });
+    });
+
+    //Users
+    
+    appData.appAdmin.get('/api/users', isAuthenticated, function(req, res){
+        console.log(req.user);
+        databaseref.child('schools/duke/users').once('value').then(function(snapshot){
+                var array = snapshot.val();
+                if(array){
+                    var usersWithEmail = {};
+                    for (var id in array)
+                        if (array.hasOwnProperty(id) && array[id].email)
+                            usersWithEmail[id] = array[id];
+                    res.status(REQUESTSUCCESSFUL).send(usersWithEmail);
+                }
+                else
+                    res.status(REQUESTSUCCESSFUL).send({});
+            })
+            .catch(function(error){
+                res.status(REQUESTBAD).send(error);
+                console.log(error);
+            });
+    });
+});
