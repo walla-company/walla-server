@@ -48,6 +48,14 @@ app.set('port', (process.env.PORT || 8080));
 app.use(express.static(__dirname + '/public'));
 
 app.use(bodyParser.json());
+//CORS
+app.use(function(req, res, next) {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', '*');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+
+    next();
+});
 // views is directory for all template files
 app.set('views', __dirname + '/views');
 app.set('view engine', 'ejs');
@@ -2183,6 +2191,38 @@ app.get('/api/get_search_groups_array', function(req, res){
 
 
 });
+//GET ALL USERS FROM SCHOOL
+app.get('/api/get_users', function(req, res){
+  var token = req.query.token;
+
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
+
+  incrementTokenCalls(token);
+
+  var school_identifier = req.query['school_identifier'];
+
+  if(!school_identifier){
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+  }
+
+  databaseref.child('schools').child(school_identifier).child('users').once('value').then(function(snapshot){
+            if(snapshot.val())
+                res.status(REQUESTSUCCESSFUL).send(snapshot.val());
+            else
+                res.status(REQUESTSUCCESSFUL).send({});
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+
+});
 
 
 //***************FRIEND HANDLERS*************//
@@ -3257,7 +3297,7 @@ adminServer(function(appData) { //Initialize Admin Web Manager Api
     
     appData.appAdmin.get('/api/users', function(req, res){
         // console.log(req.user);
-        databaseref.child('app_settings/api_keys').once('value').then(function(snapshot){
+        databaseref.child('app_settings/allowed_domains').once('value').then(function(snapshot){
             console.log(snapshot.val());
         });
         // databaseref.child('schools/duke/users').once('value').then(function(snapshot){
