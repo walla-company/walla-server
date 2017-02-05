@@ -1037,10 +1037,6 @@ function inviteGroup(guid, school_identifier, auid, activity_title) {
             }
           }
       })
-      .catch(function(error){
-          res.status(REQUESTBAD).send(error);
-          console.log(error);
-  });
 }
 
 
