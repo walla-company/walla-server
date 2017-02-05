@@ -2596,7 +2596,7 @@ app.post('/api/post_discussion', function(req, res){
         var current_time = new Date().getTime() / 1000;
         console.log("Activity: " + snapshot.val());
 
-        var title = snapshot.val()["title"];
+        var activity_title = snapshot.val()["title"];
         
         if (snapshot.val()["replies"] != null) {
             for (var reply_id in snapshot.val()["replies"]) {
