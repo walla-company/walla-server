@@ -2288,7 +2288,7 @@ app.post('/api/request_friend', function(req, res){
                         var notificationRef = databaseref.child('schools/' + school_identifier + '/notifications/' + friend).push(notification);
                         databaseref.child('schools/' + school_identifier + '/notifications/' + friend + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
                         
-                        sendNotificationToUser(snapshot.val()["first_name"] + " " + snapshot.val()["last_name"] + " sent you a friend request!", "Friend Request", uid, school_identifier);
+                        sendNotificationToUser(snapshot.val()["first_name"] + " " + snapshot.val()["last_name"] + " sent you a friend request!", "Friend Request", friend, school_identifier);
                       }
                   })
                   .catch(function(error){
