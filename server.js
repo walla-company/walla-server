@@ -2596,7 +2596,7 @@ app.post('/api/post_discussion', function(req, res){
         var current_time = new Date().getTime() / 1000;
         console.log("Activity: " + snapshot.val());
 
-        var title = snapshot.val()["members"];
+        var title = snapshot.val()["title"];
         
         if (snapshot.val()["replies"] != null) {
             for (var reply_id in snapshot.val()["replies"]) {
@@ -2607,7 +2607,7 @@ app.post('/api/post_discussion', function(req, res){
                     type: NOTIFICATIONDISCUSSIONPOSTED,
                     sender: uid,
                     activity_id: auid,
-                    text: snapshot.val()["name"] + " posted in " + activity_title + ": " + text,
+                    text: "New post in " + activity_title + ": " + text,
                     read: false,
                     profile_image_url: ""
                 };
@@ -2617,7 +2617,7 @@ app.post('/api/post_discussion', function(req, res){
 
                 databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/invited_groups/' + guid).set(current_time);
                 
-                sendNotificationToUser(snapshot.val()["name"] + " posted in " + activity_title, "Discussion", reply_id, school_identifier);
+                sendNotificationToUser("New post in " + activity_title, "Discussion", reply_id, school_identifier);
             
                 } 
             
