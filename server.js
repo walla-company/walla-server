@@ -2757,7 +2757,6 @@ function sendNotificationToUser(message, title, uid, school_identifier) {
                 }
             }
         })
-    });
     
 }
 
