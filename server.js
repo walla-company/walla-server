@@ -10,7 +10,7 @@ var nodemailer = require('nodemailer'); //npm install nodemailer --save
 var fs = require('fs');
 var bodyParser = require('body-parser');
 var randomcolor = require('randomcolor');
-var adminServer = require('./admin-server'); //Admin web manager server
+//var adminServer = require('./admin-server'); //Admin web manager server
 var request = require('request');
 
 //***************CONSTANTS*************//
@@ -3352,10 +3352,10 @@ function sendUsersAttending(att, attendees, school, res){
      })
 }
 
-
+/*
 adminServer(function(appData) { //Initialize Admin Web Manager Api
     //Authentication
-    /*
+    
     var isAuthenticated = jws.isAuthenticated(appData.appAdminSecret);
 
     appData.appAdmin.post('/api/token', function(req, res) {
@@ -3427,5 +3427,6 @@ adminServer(function(appData) { //Initialize Admin Web Manager Api
         //         res.status(REQUESTBAD).send(error);
         //         console.log(error);
         //     });
-    });*/
+    });
 });
+*/
