@@ -1031,7 +1031,7 @@ function inviteGroup(guid, school_identifier, auid, activity_title) {
               var notificationRef = databaseref.child('schools/' + school_identifier + '/notifications/' + member_id).push(notification);
               databaseref.child('schools/' + school_identifier + '/notifications/' + member_id + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
 
-              databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/invited_groups/' + uid).set(current_time);
+              databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/invited_groups/' + guid).set(current_time);
                 
               sendNotificationToUser(snapshot.val()["name"] + " was invited to " + activity_title, "Group Invited", member_id, school_identifier);
             }
