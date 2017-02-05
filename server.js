@@ -2607,17 +2607,15 @@ app.post('/api/post_discussion', function(req, res){
                     type: NOTIFICATIONDISCUSSIONPOSTED,
                     sender: uid,
                     activity_id: auid,
-                    text: "New post in " + activity_title + ": " + text,
+                    text: "New discussion in " + activity_title + ": " + text,
                     read: false,
                     profile_image_url: ""
                 };
 
                 var notificationRef = databaseref.child('schools/' + school_identifier + '/notifications/' + reply_id).push(notification);
                 databaseref.child('schools/' + school_identifier + '/notifications/' + reply_id + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
-
-                databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/invited_groups/' + guid).set(current_time);
                 
-                sendNotificationToUser("New post in " + activity_title, "Discussion", reply_id, school_identifier);
+                sendNotificationToUser("New discussion in " + activity_title, "Discussion", reply_id, school_identifier);
             
                 } 
             
