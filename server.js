@@ -788,24 +788,12 @@ app.get('/api/get_activities', function(req, res){
         return;
     }
 
-    
+    /*
     if(!uid){
-        //res.status(REQUESTBAD).send("invalid parameters: no uid");
-        
-        var activities = [];
-        
-        Object.keys(snapshot.val()).forEach( function(key) {
-                    
-            if (snapshot.val()[key]["public"]) {
-                activities.push(snapshot.val()[key]);
-            }
-        });
-
-        sortAndSendActivities(activities, res);
-        
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
         return;
     }
-    
+    */
     
     var timequery;
     var filter = req.query.filter;
@@ -830,20 +818,21 @@ app.get('/api/get_activities', function(req, res){
                 var keys = Object.keys(snapshot.val());
                 var current_index = 0;
                 
-                userCanSeeFeedEvent(uid, school_identifier, res, activities, snapshot.val(), current_index, keys);
-                
-                /*
-                Object.keys(snapshot.val()).forEach( function(key) {
+                if (!uid) {
+        
+                    Object.keys(snapshot.val()).forEach( function(key) {
                     
-                    if (snapshot.val()[key]["public"]) {
-                        activities.push(snapshot.val()[key]);
-                    }
-                    else if (userCanSeeEvent(uid, key, school_identifier)) {
-                        activities.push(snapshot.val()[key]);
-                    }
-                });
+                        if (snapshot.val()[key]["public"]) {
+                            activities.push(snapshot.val()[key]);
+                        }
+                    });
 
-                sortAndSendActivities(activities, res);*/
+                    sortAndSendActivities(activities, res);
+                    
+                }
+                else {
+                    userCanSeeFeedEvent(uid, school_identifier, res, activities, snapshot.val(), current_index, keys);
+                }
               }
             else {
                 res.status(REQUESTSUCCESSFUL).send({});
