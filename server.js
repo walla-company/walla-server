@@ -2601,7 +2601,7 @@ app.post('/api/post_discussion', function(req, res){
         if (snapshot.val()["replies"] != null) {
             for (var reply_id in snapshot.val()["replies"]) {
 
-            if (snapshot.val()["replies"][reply_id] == "going") {
+            if (snapshot.val()["replies"][reply_id] == "going" && reply_id != uid) {
                 var notification = {
                     time_created: current_time*1.0,
                     type: NOTIFICATIONDISCUSSIONPOSTED,
@@ -2627,35 +2627,6 @@ app.post('/api/post_discussion', function(req, res){
     
     res.status(REQUESTSUCCESSFUL).send("discussion added");
 });
-
-/*
-databaseref.child('schools/' + school_identifier + '/groups/' + guid).once('value').then(function(snapshot){
-
-          var current_time = new Date().getTime() / 1000;
-          console.log("Group: " + snapshot.val());
-
-          if (snapshot.val()["members"] != null) {
-            for (var member_id in snapshot.val()["members"]) {
-
-              var notification = {
-                time_created: current_time*1.0,
-                type: NOTIFICATIONGROUPINVITED,
-                sender: guid,
-                activity_id: auid,
-                text: snapshot.val()["name"] + " was invited to " + activity_title,
-                read: false,
-                profile_image_url: ""
-              };
-
-              var notificationRef = databaseref.child('schools/' + school_identifier + '/notifications/' + member_id).push(notification);
-              databaseref.child('schools/' + school_identifier + '/notifications/' + member_id + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
-
-              databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/invited_groups/' + guid).set(current_time);
-                
-              sendNotificationToUser(snapshot.val()["name"] + " was invited to " + activity_title, "Group Invited", member_id, school_identifier);
-            }
-          }
-      })*/
 
 app.get('/api/get_discussions', function(req, res){
     
