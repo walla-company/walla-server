@@ -723,6 +723,7 @@ app.get('/api/get_activity', function(req, res){
 
     var school_identifier = req.query.school_identifier;
     var auid = req.query.auid;
+    var uid = req.query.uid;
 
     if(!auid){
         res.status(REQUESTBAD).send("invalid parameters: no auid");
@@ -733,12 +734,33 @@ app.get('/api/get_activity', function(req, res){
         res.status(REQUESTBAD).send("invalid parameters: no school identifier");
         return;
     }
-
-    databaseref.child('schools/' + school_identifier + '/activities/' + auid).once('value').then(function(snapshot){
-            if(snapshot.val())
+    
+    if(!uid){
+        //res.status(REQUESTBAD).send("invalid parameters: no uid");
+        databaseref.child('schools/' + school_identifier + '/activities/' + auid).once('value').then(function(snapshot){
+            if(snapshot.val()) {
                 res.status(REQUESTSUCCESSFUL).send(snapshot.val());
-            else
+            }
+            else {
                 res.status(REQUESTSUCCESSFUL).send({});
+            }
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+        return;
+    }
+    
+    databaseref.child('schools/' + school_identifier + '/activities/' + auid).once('value').then(function(snapshot){
+            if(snapshot.val()) {
+                
+                userCanSeeEvent(uid, auid, school_identifier, res, snapshot.val());
+                
+            }
+            else {
+                res.status(REQUESTSUCCESSFUL).send({});
+            }
         })
         .catch(function(error){
             res.status(REQUESTBAD).send(error);
@@ -759,12 +781,32 @@ app.get('/api/get_activities', function(req, res){
     incrementTokenCalls(token);
 
     var school_identifier = req.query.school_identifier;
+    var uid = req.query.uid;
 
     if(!school_identifier){
         res.status(REQUESTBAD).send("invalid parameters: no school identifier");
         return;
     }
 
+    
+    if(!uid){
+        //res.status(REQUESTBAD).send("invalid parameters: no uid");
+        
+        var activities = [];
+        
+        Object.keys(snapshot.val()).forEach( function(key) {
+                    
+            if (snapshot.val()[key]["public"]) {
+                activities.push(snapshot.val()[key]);
+            }
+        });
+
+        sortAndSendActivities(activities, res);
+        
+        return;
+    }
+    
+    
     var timequery;
     var filter = req.query.filter;
     if(!isNaN(filter)){
@@ -785,11 +827,23 @@ app.get('/api/get_activities', function(req, res){
             if(snapshot.val()) {
 
                 var activities = [];
+                var keys = Object.keys(snapshot.val());
+                var current_index = 0;
+                
+                userCanSeeFeedEvent(uid, school_identifier, res, activities, snapshot.val(), current_index, keys);
+                
+                /*
                 Object.keys(snapshot.val()).forEach( function(key) {
-                  activities.push(snapshot.val()[key]);
+                    
+                    if (snapshot.val()[key]["public"]) {
+                        activities.push(snapshot.val()[key]);
+                    }
+                    else if (userCanSeeEvent(uid, key, school_identifier)) {
+                        activities.push(snapshot.val()[key]);
+                    }
                 });
 
-                sortAndSendActivities(activities, res);
+                sortAndSendActivities(activities, res);*/
               }
             else {
                 res.status(REQUESTSUCCESSFUL).send({});
@@ -947,6 +1001,131 @@ function compareActivities(a1, a2) {
 
   return score1 - score2;
 }
+
+function userCanSeeEvent(uid, auid, school_identifier, res, activity) {
+
+                
+        if (activity["public"]) {
+                    
+            console.log("Event public");
+            res.status(REQUESTSUCCESSFUL).send(activity);
+            
+            return;
+        }
+        else if (activity["host"] == uid) {
+                    
+            console.log("Event private: user can see (host)");
+            res.status(REQUESTSUCCESSFUL).send(activity);
+            
+            return;
+        }
+                
+        for (var user_id in activity["invited_users"]) {
+            if (user_id == uid) {
+                
+                console.log("Event private: user can see (invited user)");
+                res.status(REQUESTSUCCESSFUL).send(activity);
+                
+                return;
+            }
+        }
+    
+        databaseref.child('schools/' + school_identifier + '/users/' + uid + '/groups').once('value').then(function(snapshot){
+            if(snapshot.val()) {
+                
+                for (var group_id in activity["invited_groups"]) {
+                    if (snapshot.val().hasOwnProperty(group_id)) {
+                        
+                        console.log("Event private: user can see (invited group)");
+                        res.status(REQUESTSUCCESSFUL).send(activity);
+                        
+                        return;
+                    }
+                }
+                
+                console.log("Event private: user cannot see");
+                res.status(REQUESTSUCCESSFUL).send({});
+                
+                return;
+            }
+        }).catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+            console.log("Event private: user cannot see");
+            res.status(REQUESTSUCCESSFUL).send({});
+            return;
+    });
+}
+
+function userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys) {
+
+    var key = keys[current_index];
+    
+    if (!key || (current_index == all_activities.length)) {
+
+        sortAndSendActivities(activities, res);
+        
+        return;
+    }
+    
+    console.log("Key: " + key);
+    
+    var current_activity = all_activities[key];
+    current_index = current_index + 1;
+    
+    if (current_activity["public"]) {
+                    
+            console.log("Event public");
+            activities.push(current_activity);
+            userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
+            
+            return;
+        }
+        else if (current_activity["host"] == uid) {
+                    
+            console.log("Event private: user can see (host)");
+            activities.push(current_activity);
+            userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
+            
+            return;
+        }
+                
+        for (var user_id in current_activity["invited_users"]) {
+            if (user_id == uid) {
+                
+                console.log("Event private: user can see (invited user)");
+                activities.push(current_activity);
+                userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
+                
+                return;
+            }
+        }
+    
+        databaseref.child('schools/' + school_identifier + '/users/' + uid + '/groups').once('value').then(function(snapshot){
+            if(snapshot.val()) {
+                
+                for (var group_id in current_activity["invited_groups"]) {
+                    if (snapshot.val().hasOwnProperty(group_id)) {
+                        
+                        console.log("Event private: user can see (invited group)");
+                        activities.push(current_activity);
+                        userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
+                        
+                        return;
+                    }
+                }
+                
+                console.log("Event private: user cannot see");
+                userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
+            }
+        }).catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+            console.log("Event private: user cannot see");
+            userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
+    });
+}
+
 
 
 //***************INVITE HANDLERS*************//
