@@ -2741,7 +2741,7 @@ app.post('/api/send_notification_to_user', function(req, res){
 
 function sendNotificationToUser(message, title, uid, school_identifier) {
 
-    console("Send notification to " + uid + " || " + school_identifier);
+    console.log("Send notification to " + uid + " || " + school_identifier);
     
     databaseref.child('schools/' + school_identifier + '/users/' + uid + '/notification_tokens').once('value').then(function(snapshot){
         
