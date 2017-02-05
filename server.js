@@ -11,6 +11,7 @@ var fs = require('fs');
 var bodyParser = require('body-parser');
 var randomcolor = require('randomcolor');
 var adminServer = require('./admin-server'); //Admin web manager server
+var request = require('request');
 
 //***************CONSTANTS*************//
 
@@ -964,7 +965,7 @@ function inviteUser(sender, uid, school_identifier, auid, activity_title) {
                 var notification = {
                   time_created: current_time*1.0,
                   type: NOTIFICATIONUSERINVITED,
-                  sender: uid,
+                  sender: sender,
                   activity_id: auid,
                   text: snapshot.val()["first_name"] + " " + snapshot.val()["last_name"] + " invited you to " + activity_title,
                   read: false,
@@ -975,6 +976,8 @@ function inviteUser(sender, uid, school_identifier, auid, activity_title) {
                 databaseref.child('schools/' + school_identifier + '/notifications/' + uid + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
 
                 databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/invited_users/' + uid).set(current_time);
+                
+                sendNotificationToUser(snapshot.val()["first_name"] + " " + snapshot.val()["last_name"] + " invited you to " + activity_title, "Invited", uid, school_identifier);
               }
           })
           .catch(function(error){
@@ -1029,6 +1032,8 @@ function inviteGroup(guid, school_identifier, auid, activity_title) {
               databaseref.child('schools/' + school_identifier + '/notifications/' + member_id + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
 
               databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/invited_groups/' + uid).set(current_time);
+                
+              sendNotificationToUser(snapshot.val()["name"] + " was invited to " + activity_title, "Group Invited", member_id, school_identifier);
             }
           }
       })
@@ -2282,6 +2287,8 @@ app.post('/api/request_friend', function(req, res){
 
                         var notificationRef = databaseref.child('schools/' + school_identifier + '/notifications/' + friend).push(notification);
                         databaseref.child('schools/' + school_identifier + '/notifications/' + friend + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
+                          
+                        sendNotificationToUser(snapshot.val()["first_name"] + " " + snapshot.val()["last_name"] + " sent you a friend request!", "Friend Request", uid, school_identifier);
                       }
                   })
                   .catch(function(error){
@@ -2662,7 +2669,6 @@ app.post('/api/remove_notification_token', function(req, res){
 
     var school_identifier = req.body.school_identifier;
     var uid = req.body.uid;
-    var token = req.body.token;
 
     if(!school_identifier){
         res.status(REQUESTBAD).send("invalid parameters: no school identifier");
@@ -2685,6 +2691,111 @@ app.post('/api/remove_notification_token', function(req, res){
     res.status(REQUESTSUCCESSFUL).send("notification token removed");
 
 });
+
+app.post('/api/send_notification_to_user', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.write){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    var school_identifier = req.body.school_identifier;
+    var uid = req.body.uid;
+    var message = req.body.message;
+    var title = req.body.title;
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    if(!token){
+        res.status(REQUESTBAD).send("invalid parameters: no token");
+        return;
+    }
+    
+    if(!message){
+        res.status(REQUESTBAD).send("invalid parameters: no message");
+        return;
+    }
+
+    
+    if(!title){
+        res.status(REQUESTBAD).send("invalid parameters: no title");
+        return;
+    }
+
+
+    sendNotificationToUser(message, title, uid, school_identifier);
+
+    res.status(REQUESTSUCCESSFUL).send("notification sent");
+
+});
+
+function sendNotificationToUser(message, title, uid, school_identifier) {
+
+    databaseref.child('schools/' + school_identifier + '/users/' + uid + '/notification_tokens').once('value').then(function(snapshot){
+        
+            console.log("Notification tokens: " + snapshot.val());
+        
+            if(snapshot.val()) {
+                
+                for (var notification_id in snapshot.val()) {
+
+                    console.log("Notification id: " + notification_id);
+                    
+                    sendNotification(message, title, notification_id);
+                }
+            }
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+    
+}
+
+// This is a function which sends notifications to multiple devices
+function sendNotification(message, title, recipient) {
+
+  console.log("Sending notification");
+
+  request(
+    {
+      method: 'POST',
+      uri: 'https://fcm.googleapis.com/fcm/send',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'key=AAAAPOKlPuE:APA91bEFvSBMpS_5pb8_1GRQAZGgnVLhyKF5RTG5zk-sGBPKm0XRnvNw_J0hhmdJ7Yyidjksgfux3O8-V69k3LDOeFgqP94AEL5uM7lm1fl_mgTtUyCKR-x4H9-qmth4IG1aIVtShxtT'
+      },
+      body: JSON.stringify({
+        "to": recipient,
+        "priority": "high",
+        "notification" : {
+          "body" : message,
+          "title": title,
+          "sound": "default",
+          "badge": 1
+        }
+      })
+    },
+    function (error, response, body) {
+      if(response.statusCode == 200){
+
+        console.log('Success');
+      } else {
+        console.log('error: '+ response.statusCode);
+      }
+    }
+  )
+}
 
 //***************VERIFICATION HANDLERS*************//
 
