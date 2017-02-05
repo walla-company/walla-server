@@ -2543,8 +2543,8 @@ app.get('/api/get_received_friend_requests', function(req, res){
 });
 
 //***************DISCUSSION HANDLERS*************//
-/*
-app.post('/api/post_comment', function(req, res){
+
+app.post('/api/post_discussion', function(req, res){
     var token = req.query.token;
 
     var auth = authenticateToken(token);
@@ -2553,9 +2553,9 @@ app.post('/api/post_comment', function(req, res){
         return;
     }
 
-    var school = req.body['school_identifier'];
-    if(!school){
-        res.status(REQUESTBAD).send("invalid parameters: no domain");
+    var school_identifier = req.body['school_identifier'];
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
         return;
     }
 
@@ -2572,28 +2572,29 @@ app.post('/api/post_comment', function(req, res){
         return;
     }
     
-    var msg = req.body['message'];
-    if(!msg){
-        res.status(REQUESTBAD).send("invalid parameters: no msg");
+    var text = req.body['text'];
+    if(!text){
+        res.status(REQUESTBAD).send("invalid parameters: no text");
         return;
     }
 
-    var comment = {
-        user: uid,
-        comment: msg,
-        time: new Date().getTime() / 1000
+    var discussion = {
+        user_id: uid,
+        activity_id: auid,
+        text: text,
+        time_posted: new Date().getTime() / 1000
     };
     
-    databaseref.child("schools").child(school_identifier).child("discussions").child(auid).update(comment);
-    
-    var newActivityRef = databaseref.child('schools/' + school_identifier + '/activities').push(activity);
-    var auid = newActivityRef.key;
+    var newDiscussionRef = databaseref.child("schools").child(school_identifier).child("discussions").child(auid).push(discussion);
+    var discussion_id = newDiscussionRef.key;
 
-    newActivityRef.child('activity_id').set(auid);
+    newDiscussionRef.child('discussion_id').set(discussion_id);
 
+    res.status(REQUESTSUCCESSFUL).send("discussion added");
 });
 
-app.get('/api/get_comments', function(req, res){
+app.get('/api/get_discussions', function(req, res){
+    
     var token = req.query.token;
 
     var auth = authenticateToken(token);
@@ -2602,41 +2603,31 @@ app.get('/api/get_comments', function(req, res){
         return;
     }
 
-    var school = req.body['school_identifier'];
-    if(!school){
-        res.status(REQUESTBAD).send("invalid parameters: no domain");
+    var school_identifier = req.query.school_identifier;
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
         return;
     }
 
 
-    var auid = req.body['auid'];
+    var auid = req.query.auid;
     if(!auid){
-        res.status(REQUESTBAD).send("invalid parameters: no event key");
-        return;
-    }
-
-    var uid = req.body['uid'];
-    if(!uid){
-        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        res.status(REQUESTBAD).send("invalid parameters: no auid");
         return;
     }
     
-    if(!msg){
-        res.status(REQUESTBAD).send("invalid parameters: no msg");
-        return;
-    }
-    
-    databaseref.child("schools").child(school_identifier).child("discussions").child(auid).once('value')
-        .then(function(snapshot){
-            if(snapshot.val()){
-                res.status(REQUESTSUCCESSFUL).send(snapshot.val())
-            }else{
-                res.status(REQUESTBAD).send({"value was null"})
-            }
-    };
-
+    databaseref.child("schools").child(school_identifier).child("discussions").child(auid).once('value').then(function(snapshot){
+            if(snapshot.val())
+                res.status(REQUESTSUCCESSFUL).send(snapshot.val());
+            else
+                res.status(REQUESTSUCCESSFUL).send({});
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
 });
-*/
+
 
 //***************NOTIFICATIONS HANDLERS*************//
 
