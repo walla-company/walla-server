@@ -2757,9 +2757,6 @@ function sendNotificationToUser(message, title, uid, school_identifier) {
                 }
             }
         })
-        .catch(function(error){
-            res.status(REQUESTBAD).send(error);
-            console.log(error);
     });
     
 }
