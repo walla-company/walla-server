@@ -2543,8 +2543,100 @@ app.get('/api/get_received_friend_requests', function(req, res){
 });
 
 //***************DISCUSSION HANDLERS*************//
+/*
+app.post('/api/post_comment', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.write){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    var school = req.body['school_identifier'];
+    if(!school){
+        res.status(REQUESTBAD).send("invalid parameters: no domain");
+        return;
+    }
 
 
+    var auid = req.body['auid'];
+    if(!auid){
+        res.status(REQUESTBAD).send("invalid parameters: no event key");
+        return;
+    }
+
+    var uid = req.body['uid'];
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+    
+    var msg = req.body['message'];
+    if(!msg){
+        res.status(REQUESTBAD).send("invalid parameters: no msg");
+        return;
+    }
+
+    var comment = {
+        user: uid,
+        comment: msg,
+        time: new Date().getTime() / 1000
+    };
+    
+    databaseref.child("schools").child(school_identifier).child("discussions").child(auid).update(comment);
+    
+    var newActivityRef = databaseref.child('schools/' + school_identifier + '/activities').push(activity);
+    var auid = newActivityRef.key;
+
+    newActivityRef.child('activity_id').set(auid);
+
+});
+
+app.get('/api/get_comments', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.read){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    var school = req.body['school_identifier'];
+    if(!school){
+        res.status(REQUESTBAD).send("invalid parameters: no domain");
+        return;
+    }
+
+
+    var auid = req.body['auid'];
+    if(!auid){
+        res.status(REQUESTBAD).send("invalid parameters: no event key");
+        return;
+    }
+
+    var uid = req.body['uid'];
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+    
+    if(!msg){
+        res.status(REQUESTBAD).send("invalid parameters: no msg");
+        return;
+    }
+    
+    databaseref.child("schools").child(school_identifier).child("discussions").child(auid).once('value')
+        .then(function(snapshot){
+            if(snapshot.val()){
+                res.status(REQUESTSUCCESSFUL).send(snapshot.val())
+            }else{
+                res.status(REQUESTBAD).send({"value was null"})
+            }
+    };
+
+});
+*/
 
 //***************NOTIFICATIONS HANDLERS*************//
 
@@ -2630,7 +2722,7 @@ app.post('/api/add_notification_token', function(req, res){
 
     var school_identifier = req.body.school_identifier;
     var uid = req.body.uid;
-    var token = req.body.token;
+    var notification_token = req.body.token;
 
     if(!school_identifier){
         res.status(REQUESTBAD).send("invalid parameters: no school identifier");
@@ -2648,7 +2740,7 @@ app.post('/api/add_notification_token', function(req, res){
     }
 
     var current_time = new Date().getTime() / 1000;
-    databaseref.child('schools/' + school_identifier + '/users/' + uid + "/notification_tokens/" + token).set(current_time);
+    databaseref.child('schools/' + school_identifier + '/users/' + uid + "/notification_tokens/" + notification_token).set(current_time);
 
     res.status(REQUESTSUCCESSFUL).send("notification token added");
 
@@ -2709,11 +2801,6 @@ app.post('/api/send_notification_to_user', function(req, res){
 
     if(!uid){
         res.status(REQUESTBAD).send("invalid parameters: no uid");
-        return;
-    }
-
-    if(!token){
-        res.status(REQUESTBAD).send("invalid parameters: no token");
         return;
     }
     
