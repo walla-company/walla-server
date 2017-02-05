@@ -2722,7 +2722,7 @@ app.post('/api/add_notification_token', function(req, res){
 
     var school_identifier = req.body.school_identifier;
     var uid = req.body.uid;
-    var notification_token = req.body.token;
+    var notification_token = req.body.notification_token;
 
     if(!school_identifier){
         res.status(REQUESTBAD).send("invalid parameters: no school identifier");
@@ -2757,6 +2757,7 @@ app.post('/api/remove_notification_token', function(req, res){
 
     var school_identifier = req.body.school_identifier;
     var uid = req.body.uid;
+    var notification_token = req.body.notification_token;
 
     if(!school_identifier){
         res.status(REQUESTBAD).send("invalid parameters: no school identifier");
@@ -2774,7 +2775,7 @@ app.post('/api/remove_notification_token', function(req, res){
     }
 
     var current_time = new Date().getTime() / 1000;
-    databaseref.child('schools/' + school_identifier + '/users/' + uid + "/notification_tokens/" + token).remove();
+    databaseref.child('schools/' + school_identifier + '/users/' + uid + "/notification_tokens/" + notification_token).remove();
 
     res.status(REQUESTSUCCESSFUL).send("notification token removed");
 
