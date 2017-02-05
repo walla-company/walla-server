@@ -3355,7 +3355,7 @@ function sendUsersAttending(att, attendees, school, res){
 
 adminServer(function(appData) { //Initialize Admin Web Manager Api
     //Authentication
-
+    /*
     var isAuthenticated = jws.isAuthenticated(appData.appAdminSecret);
 
     appData.appAdmin.post('/api/token', function(req, res) {
@@ -3427,5 +3427,5 @@ adminServer(function(appData) { //Initialize Admin Web Manager Api
         //         res.status(REQUESTBAD).send(error);
         //         console.log(error);
         //     });
-    });
+    });*/
 });
