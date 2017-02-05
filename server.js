@@ -38,6 +38,7 @@ const WEBSITE = 'https://walla-server.herokuapp.com';
 const NOTIFICATIONFRIENDREQUEST = "friend_request";
 const NOTIFICATIONUSERINVITED = "user_invited";
 const NOTIFICATIONGROUPINVITED = "group_invited";
+const NOTIFICATIONDISCUSSIONPOSTED = "discussion_posted"
 
 
 //***************INITIALIZATION*************//
@@ -2590,8 +2591,71 @@ app.post('/api/post_discussion', function(req, res){
 
     newDiscussionRef.child('discussion_id').set(discussion_id);
 
+    databaseref.child('schools/' + school_identifier + '/activities/' + auid).once('value').then(function(snapshot){
+
+        var current_time = new Date().getTime() / 1000;
+        console.log("Activity: " + snapshot.val());
+
+        var title = snapshot.val()["members"];
+        
+        if (snapshot.val()["replies"] != null) {
+            for (var reply_id in snapshot.val()["replies"]) {
+
+            if (snapshot.val()["replies"][reply_id] == "going") {
+                var notification = {
+                    time_created: current_time*1.0,
+                    type: NOTIFICATIONDISCUSSIONPOSTED,
+                    sender: uid,
+                    activity_id: auid,
+                    text: snapshot.val()["name"] + " posted in " + activity_title + ": " + text,
+                    read: false,
+                    profile_image_url: ""
+                };
+
+                var notificationRef = databaseref.child('schools/' + school_identifier + '/notifications/' + reply_id).push(notification);
+                databaseref.child('schools/' + school_identifier + '/notifications/' + reply_id + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
+
+                databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/invited_groups/' + guid).set(current_time);
+                
+                sendNotificationToUser(snapshot.val()["name"] + " posted in " + activity_title, "Discussion", reply_id, school_identifier);
+            
+                } 
+            
+            }
+        }
+    })
+    
     res.status(REQUESTSUCCESSFUL).send("discussion added");
 });
+
+/*
+databaseref.child('schools/' + school_identifier + '/groups/' + guid).once('value').then(function(snapshot){
+
+          var current_time = new Date().getTime() / 1000;
+          console.log("Group: " + snapshot.val());
+
+          if (snapshot.val()["members"] != null) {
+            for (var member_id in snapshot.val()["members"]) {
+
+              var notification = {
+                time_created: current_time*1.0,
+                type: NOTIFICATIONGROUPINVITED,
+                sender: guid,
+                activity_id: auid,
+                text: snapshot.val()["name"] + " was invited to " + activity_title,
+                read: false,
+                profile_image_url: ""
+              };
+
+              var notificationRef = databaseref.child('schools/' + school_identifier + '/notifications/' + member_id).push(notification);
+              databaseref.child('schools/' + school_identifier + '/notifications/' + member_id + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
+
+              databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/invited_groups/' + guid).set(current_time);
+                
+              sendNotificationToUser(snapshot.val()["name"] + " was invited to " + activity_title, "Group Invited", member_id, school_identifier);
+            }
+          }
+      })*/
 
 app.get('/api/get_discussions', function(req, res){
     
