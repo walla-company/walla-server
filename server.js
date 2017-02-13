@@ -795,7 +795,8 @@ app.get('/api/get_activities', function(req, res){
     }
     */
     
-    var timequery;
+    var timequery = new Date().getTime() / 1000;
+    /*
     var filter = req.query.filter;
     if(!isNaN(filter)){
         var now = new Date().getTime() / 1000;
@@ -804,7 +805,7 @@ app.get('/api/get_activities', function(req, res){
         var now = new Date().getTime() / 1000;
         var day = 24 * SECONDSINHOUR;
         timequery = now - day;
-    }
+    }*/
 
     incrementTokenCalls(token);
 
@@ -953,7 +954,7 @@ function sortAndSendActivities(activities, res) {
 function compareActivities(a1, a2) {
 
   // Score = num seconds to event - (people going * 1500  + people interested * 1000)
-
+  /*
   var a1_num_going = 0;
   var a1_num_interested = 0;
 
@@ -987,8 +988,10 @@ function compareActivities(a1, a2) {
 
   var score1 = (a1['start_time'] - now) - (a1_num_going * 1500.0 + a1_num_interested * 1000.0);
   var score2 = (a2['start_time'] - now) - (a2_num_going * 1500.0 + a2_num_interested * 1000.0);
-
-  return score1 - score2;
+  
+  return score1 - score2;*/
+  
+  return a1['start_time'] - a2['start_time'];
 }
 
 function userCanSeeEvent(uid, auid, school_identifier, res, activity) {
