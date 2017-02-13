@@ -2033,7 +2033,7 @@ app.get('/api/is_user_suspended', function(req, res){
 
     databaseref.child('schools/' + school_identifier + '/users/' + uid + '/suspended').once('value').then(function(snapshot){
             if(snapshot.val()) {
-                res.status(REQUESTSUCCESSFUL).send({user_suspended: snapshot.val()});
+                res.status(REQUESTSUCCESSFUL).send({suspended: snapshot.val()});
               }
             else {
                 res.status(REQUESTSUCCESSFUL).send({suspended: false});
