@@ -2007,6 +2007,45 @@ app.post('/api/update_user_last_logon', function(req, res){
 
 });
 
+app.get('/api/is_user_suspended', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.read){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
+    var uid = req.query.uid;
+
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    databaseref.child('schools/' + school_identifier + '/users/' + uid + '/suspended').once('value').then(function(snapshot){
+            if(snapshot.val()) {
+                res.status(REQUESTSUCCESSFUL).send({user_suspended: snapshot.val()});
+              }
+            else {
+                res.status(REQUESTSUCCESSFUL).send({suspended: false});
+              }
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+});
+
 
 //***************GROUP HANDLERS*************//
 
