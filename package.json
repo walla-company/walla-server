@@ -15,7 +15,8 @@
     "fs": "*",
     "nodemailer": "*",
     "randomcolor": "*",
-    "token-generator": "*"
+    "token-generator": "*",
+    "request": "*"
   },
   "keywords": [],
   "author": "",

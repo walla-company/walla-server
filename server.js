@@ -10,7 +10,8 @@ var nodemailer = require('nodemailer'); //npm install nodemailer --save
 var fs = require('fs');
 var bodyParser = require('body-parser');
 var randomcolor = require('randomcolor');
-var adminServer = require('./admin-server'); //Admin web manager server
+//var adminServer = require('./admin-server'); //Admin web manager server
+var request = require('request');
 
 //***************CONSTANTS*************//
 
@@ -37,6 +38,7 @@ const WEBSITE = 'https://walla-server.herokuapp.com';
 const NOTIFICATIONFRIENDREQUEST = "friend_request";
 const NOTIFICATIONUSERINVITED = "user_invited";
 const NOTIFICATIONGROUPINVITED = "group_invited";
+const NOTIFICATIONDISCUSSIONPOSTED = "discussion_posted"
 
 
 //***************INITIALIZATION*************//
@@ -592,6 +594,66 @@ app.post('/api/add_activity', function(req, res){
     res.status(REQUESTSUCCESSFUL).send('activity posted');
 });
 
+app.get('/api/delete_activity', function(req, res){
+  /*
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.read){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
+    var auid = req.query.auid;
+    var uid = req.query.uid;
+
+    if(!auid){
+        res.status(REQUESTBAD).send("invalid parameters: no auid");
+        return;
+    }
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+    
+    if(!uid){
+        //res.status(REQUESTBAD).send("invalid parameters: no uid");
+        databaseref.child('schools/' + school_identifier + '/activities/' + auid).once('value').then(function(snapshot){
+            if(snapshot.val()) {
+                res.status(REQUESTSUCCESSFUL).send(snapshot.val());
+            }
+            else {
+                res.status(REQUESTSUCCESSFUL).send({});
+            }
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+        return;
+    }
+    
+    databaseref.child('schools/' + school_identifier + '/activities/' + auid).once('value').then(function(snapshot){
+            if(snapshot.val()) {
+                
+                userCanSeeEvent(uid, auid, school_identifier, res, snapshot.val());
+                
+            }
+            else {
+                res.status(REQUESTSUCCESSFUL).send({});
+            }
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+    */
+});
+
 app.post('/api/interested', function(req, res){
     var token = req.query.token;
 
@@ -721,6 +783,7 @@ app.get('/api/get_activity', function(req, res){
 
     var school_identifier = req.query.school_identifier;
     var auid = req.query.auid;
+    var uid = req.query.uid;
 
     if(!auid){
         res.status(REQUESTBAD).send("invalid parameters: no auid");
@@ -731,12 +794,33 @@ app.get('/api/get_activity', function(req, res){
         res.status(REQUESTBAD).send("invalid parameters: no school identifier");
         return;
     }
-
-    databaseref.child('schools/' + school_identifier + '/activities/' + auid).once('value').then(function(snapshot){
-            if(snapshot.val())
+    
+    if(!uid){
+        //res.status(REQUESTBAD).send("invalid parameters: no uid");
+        databaseref.child('schools/' + school_identifier + '/activities/' + auid).once('value').then(function(snapshot){
+            if(snapshot.val()) {
                 res.status(REQUESTSUCCESSFUL).send(snapshot.val());
-            else
+            }
+            else {
                 res.status(REQUESTSUCCESSFUL).send({});
+            }
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+        return;
+    }
+    
+    databaseref.child('schools/' + school_identifier + '/activities/' + auid).once('value').then(function(snapshot){
+            if(snapshot.val()) {
+                
+                userCanSeeEvent(uid, auid, school_identifier, res, snapshot.val());
+                
+            }
+            else {
+                res.status(REQUESTSUCCESSFUL).send({});
+            }
         })
         .catch(function(error){
             res.status(REQUESTBAD).send(error);
@@ -757,13 +841,22 @@ app.get('/api/get_activities', function(req, res){
     incrementTokenCalls(token);
 
     var school_identifier = req.query.school_identifier;
+    var uid = req.query.uid;
 
     if(!school_identifier){
         res.status(REQUESTBAD).send("invalid parameters: no school identifier");
         return;
     }
 
-    var timequery;
+    /*
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+    */
+    
+    var timequery = new Date().getTime() / 1000;
+    /*
     var filter = req.query.filter;
     if(!isNaN(filter)){
         var now = new Date().getTime() / 1000;
@@ -772,7 +865,7 @@ app.get('/api/get_activities', function(req, res){
         var now = new Date().getTime() / 1000;
         var day = 24 * SECONDSINHOUR;
         timequery = now - day;
-    }
+    }*/
 
     incrementTokenCalls(token);
 
@@ -783,11 +876,24 @@ app.get('/api/get_activities', function(req, res){
             if(snapshot.val()) {
 
                 var activities = [];
-                Object.keys(snapshot.val()).forEach( function(key) {
-                  activities.push(snapshot.val()[key]);
-                });
+                var keys = Object.keys(snapshot.val());
+                var current_index = 0;
+                
+                if (!uid) {
+        
+                    Object.keys(snapshot.val()).forEach( function(key) {
+                    
+                        if (snapshot.val()[key]["public"]) {
+                            activities.push(snapshot.val()[key]);
+                        }
+                    });
 
-                sortAndSendActivities(activities, res);
+                    sortAndSendActivities(activities, res);
+                    
+                }
+                else {
+                    userCanSeeFeedEvent(uid, school_identifier, res, activities, snapshot.val(), current_index, keys);
+                }
               }
             else {
                 res.status(REQUESTSUCCESSFUL).send({});
@@ -908,7 +1014,7 @@ function sortAndSendActivities(activities, res) {
 function compareActivities(a1, a2) {
 
   // Score = num seconds to event - (people going * 1500  + people interested * 1000)
-
+  /*
   var a1_num_going = 0;
   var a1_num_interested = 0;
 
@@ -942,9 +1048,136 @@ function compareActivities(a1, a2) {
 
   var score1 = (a1['start_time'] - now) - (a1_num_going * 1500.0 + a1_num_interested * 1000.0);
   var score2 = (a2['start_time'] - now) - (a2_num_going * 1500.0 + a2_num_interested * 1000.0);
-
-  return score1 - score2;
+  
+  return score1 - score2;*/
+  
+  return a1['start_time'] - a2['start_time'];
 }
+
+function userCanSeeEvent(uid, auid, school_identifier, res, activity) {
+
+                
+        if (activity["public"]) {
+                    
+            console.log("Event public");
+            res.status(REQUESTSUCCESSFUL).send(activity);
+            
+            return;
+        }
+        else if (activity["host"] == uid) {
+                    
+            console.log("Event private: user can see (host)");
+            res.status(REQUESTSUCCESSFUL).send(activity);
+            
+            return;
+        }
+                
+        for (var user_id in activity["invited_users"]) {
+            if (user_id == uid) {
+                
+                console.log("Event private: user can see (invited user)");
+                res.status(REQUESTSUCCESSFUL).send(activity);
+                
+                return;
+            }
+        }
+    
+        databaseref.child('schools/' + school_identifier + '/users/' + uid + '/groups').once('value').then(function(snapshot){
+            if(snapshot.val()) {
+                
+                for (var group_id in activity["invited_groups"]) {
+                    if (snapshot.val().hasOwnProperty(group_id)) {
+                        
+                        console.log("Event private: user can see (invited group)");
+                        res.status(REQUESTSUCCESSFUL).send(activity);
+                        
+                        return;
+                    }
+                }
+                
+                console.log("Event private: user cannot see");
+                res.status(REQUESTSUCCESSFUL).send({});
+                
+                return;
+            }
+        }).catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+            console.log("Event private: user cannot see");
+            res.status(REQUESTSUCCESSFUL).send({});
+            return;
+    });
+}
+
+function userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys) {
+
+    var key = keys[current_index];
+    
+    if (!key || (current_index == all_activities.length)) {
+
+        sortAndSendActivities(activities, res);
+        
+        return;
+    }
+    
+    console.log("Key: " + key);
+    
+    var current_activity = all_activities[key];
+    current_index = current_index + 1;
+    
+    if (current_activity["public"]) {
+                    
+            console.log("Event public");
+            activities.push(current_activity);
+            userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
+            
+            return;
+        }
+        else if (current_activity["host"] == uid) {
+                    
+            console.log("Event private: user can see (host)");
+            activities.push(current_activity);
+            userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
+            
+            return;
+        }
+                
+        for (var user_id in current_activity["invited_users"]) {
+            if (user_id == uid) {
+                
+                console.log("Event private: user can see (invited user)");
+                activities.push(current_activity);
+                userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
+                
+                return;
+            }
+        }
+    
+        databaseref.child('schools/' + school_identifier + '/users/' + uid + '/groups').once('value').then(function(snapshot){
+            if(snapshot.val()) {
+                
+                for (var group_id in current_activity["invited_groups"]) {
+                    if (snapshot.val().hasOwnProperty(group_id)) {
+                        
+                        console.log("Event private: user can see (invited group)");
+                        activities.push(current_activity);
+                        userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
+                        
+                        return;
+                    }
+                }
+                
+                console.log("Event private: user cannot see");
+                userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
+            }
+        }).catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+            console.log("Event private: user cannot see");
+            userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
+    });
+}
+
 
 
 //***************INVITE HANDLERS*************//
@@ -964,7 +1197,7 @@ function inviteUser(sender, uid, school_identifier, auid, activity_title) {
                 var notification = {
                   time_created: current_time*1.0,
                   type: NOTIFICATIONUSERINVITED,
-                  sender: uid,
+                  sender: sender,
                   activity_id: auid,
                   text: snapshot.val()["first_name"] + " " + snapshot.val()["last_name"] + " invited you to " + activity_title,
                   read: false,
@@ -975,6 +1208,8 @@ function inviteUser(sender, uid, school_identifier, auid, activity_title) {
                 databaseref.child('schools/' + school_identifier + '/notifications/' + uid + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
 
                 databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/invited_users/' + uid).set(current_time);
+                
+                sendNotificationToUser(snapshot.val()["first_name"] + " " + snapshot.val()["last_name"] + " invited you to " + activity_title, "Invited", uid, school_identifier);
               }
           })
           .catch(function(error){
@@ -1028,14 +1263,12 @@ function inviteGroup(guid, school_identifier, auid, activity_title) {
               var notificationRef = databaseref.child('schools/' + school_identifier + '/notifications/' + member_id).push(notification);
               databaseref.child('schools/' + school_identifier + '/notifications/' + member_id + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
 
-              databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/invited_groups/' + uid).set(current_time);
+              databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/invited_groups/' + guid).set(current_time);
+                
+              sendNotificationToUser(snapshot.val()["name"] + " was invited to " + activity_title, "Group Invited", member_id, school_identifier);
             }
           }
       })
-      .catch(function(error){
-          res.status(REQUESTBAD).send(error);
-          console.log(error);
-  });
 }
 
 
@@ -1834,6 +2067,45 @@ app.post('/api/update_user_last_logon', function(req, res){
 
 });
 
+app.get('/api/is_user_suspended', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.read){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
+    var uid = req.query.uid;
+
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    databaseref.child('schools/' + school_identifier + '/users/' + uid + '/suspended').once('value').then(function(snapshot){
+            if(snapshot.val()) {
+                res.status(REQUESTSUCCESSFUL).send({suspended: snapshot.val()});
+              }
+            else {
+                res.status(REQUESTSUCCESSFUL).send({suspended: false});
+              }
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+});
+
 
 //***************GROUP HANDLERS*************//
 
@@ -2337,6 +2609,8 @@ app.post('/api/request_friend', function(req, res){
 
                         var notificationRef = databaseref.child('schools/' + school_identifier + '/notifications/' + friend).push(notification);
                         databaseref.child('schools/' + school_identifier + '/notifications/' + friend + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
+                        
+                        sendNotificationToUser(snapshot.val()["first_name"] + " " + snapshot.val()["last_name"] + " sent you a friend request!", "Friend Request", friend, school_identifier);
                       }
                   })
                   .catch(function(error){
@@ -2596,6 +2870,121 @@ app.get('/api/get_received_friend_requests', function(req, res){
 
 //***************DISCUSSION HANDLERS*************//
 
+app.post('/api/post_discussion', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.write){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    var school_identifier = req.body['school_identifier'];
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+
+    var auid = req.body['auid'];
+    if(!auid){
+        res.status(REQUESTBAD).send("invalid parameters: no event key");
+        return;
+    }
+
+    var uid = req.body['uid'];
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+    
+    var text = req.body['text'];
+    if(!text){
+        res.status(REQUESTBAD).send("invalid parameters: no text");
+        return;
+    }
+
+    var discussion = {
+        user_id: uid,
+        activity_id: auid,
+        text: text,
+        time_posted: new Date().getTime() / 1000
+    };
+    
+    var newDiscussionRef = databaseref.child("schools").child(school_identifier).child("discussions").child(auid).push(discussion);
+    var discussion_id = newDiscussionRef.key;
+
+    newDiscussionRef.child('discussion_id').set(discussion_id);
+
+    databaseref.child('schools/' + school_identifier + '/activities/' + auid).once('value').then(function(snapshot){
+
+        var current_time = new Date().getTime() / 1000;
+        console.log("Activity: " + snapshot.val());
+
+        var activity_title = snapshot.val()["title"];
+        
+        if (snapshot.val()["replies"] != null) {
+            for (var reply_id in snapshot.val()["replies"]) {
+
+            if (snapshot.val()["replies"][reply_id] == "going" && reply_id != uid) {
+                var notification = {
+                    time_created: current_time*1.0,
+                    type: NOTIFICATIONDISCUSSIONPOSTED,
+                    sender: uid,
+                    activity_id: auid,
+                    text: "New discussion in " + activity_title + ": " + text,
+                    read: false,
+                    profile_image_url: ""
+                };
+
+                var notificationRef = databaseref.child('schools/' + school_identifier + '/notifications/' + reply_id).push(notification);
+                databaseref.child('schools/' + school_identifier + '/notifications/' + reply_id + "/" + notificationRef.key + "/notification_id").set(notificationRef.key);
+                
+                sendNotificationToUser("New discussion in " + activity_title, "Discussion", reply_id, school_identifier);
+            
+                } 
+            
+            }
+        }
+    })
+    
+    res.status(REQUESTSUCCESSFUL).send("discussion added");
+});
+
+app.get('/api/get_discussions', function(req, res){
+    
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.read){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    var school_identifier = req.query.school_identifier;
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+
+    var auid = req.query.auid;
+    if(!auid){
+        res.status(REQUESTBAD).send("invalid parameters: no auid");
+        return;
+    }
+    
+    databaseref.child("schools").child(school_identifier).child("discussions").child(auid).once('value').then(function(snapshot){
+            if(snapshot.val())
+                res.status(REQUESTSUCCESSFUL).send(snapshot.val());
+            else
+                res.status(REQUESTSUCCESSFUL).send({});
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+});
 
 
 //***************NOTIFICATIONS HANDLERS*************//
@@ -2682,7 +3071,7 @@ app.post('/api/add_notification_token', function(req, res){
 
     var school_identifier = req.body.school_identifier;
     var uid = req.body.uid;
-    var token = req.body.token;
+    var notification_token = req.body.notification_token;
 
     if(!school_identifier){
         res.status(REQUESTBAD).send("invalid parameters: no school identifier");
@@ -2700,7 +3089,7 @@ app.post('/api/add_notification_token', function(req, res){
     }
 
     var current_time = new Date().getTime() / 1000;
-    databaseref.child('schools/' + school_identifier + '/users/' + uid + "/notification_tokens/" + token).set(current_time);
+    databaseref.child('schools/' + school_identifier + '/users/' + uid + "/notification_tokens/" + notification_token).set(current_time);
 
     res.status(REQUESTSUCCESSFUL).send("notification token added");
 
@@ -2717,7 +3106,7 @@ app.post('/api/remove_notification_token', function(req, res){
 
     var school_identifier = req.body.school_identifier;
     var uid = req.body.uid;
-    var token = req.body.token;
+    var notification_token = req.body.notification_token;
 
     if(!school_identifier){
         res.status(REQUESTBAD).send("invalid parameters: no school identifier");
@@ -2735,11 +3124,109 @@ app.post('/api/remove_notification_token', function(req, res){
     }
 
     var current_time = new Date().getTime() / 1000;
-    databaseref.child('schools/' + school_identifier + '/users/' + uid + "/notification_tokens/" + token).remove();
+    databaseref.child('schools/' + school_identifier + '/users/' + uid + "/notification_tokens/" + notification_token).remove();
 
     res.status(REQUESTSUCCESSFUL).send("notification token removed");
 
 });
+
+app.post('/api/send_notification_to_user', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.write){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    var school_identifier = req.body.school_identifier;
+    var uid = req.body.uid;
+    var message = req.body.message;
+    var title = req.body.title;
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+    
+    if(!message){
+        res.status(REQUESTBAD).send("invalid parameters: no message");
+        return;
+    }
+
+    
+    if(!title){
+        res.status(REQUESTBAD).send("invalid parameters: no title");
+        return;
+    }
+
+
+    sendNotificationToUser(message, title, uid, school_identifier);
+
+    res.status(REQUESTSUCCESSFUL).send("notification sent");
+
+});
+
+function sendNotificationToUser(message, title, uid, school_identifier) {
+
+    console.log("Send notification to " + uid + " || " + school_identifier);
+    
+    databaseref.child('schools/' + school_identifier + '/users/' + uid + '/notification_tokens').once('value').then(function(snapshot){
+        
+            console.log("Notification tokens: " + snapshot.val());
+        
+            if(snapshot.val()) {
+                
+                for (var notification_id in snapshot.val()) {
+
+                    console.log("Notification id: " + notification_id);
+                    
+                    sendNotification(message, title, notification_id);
+                }
+            }
+        })
+    
+}
+
+// This is a function which sends notifications to multiple devices
+function sendNotification(message, title, recipient) {
+
+  console.log("Sending notification");
+
+  request(
+    {
+      method: 'POST',
+      uri: 'https://fcm.googleapis.com/fcm/send',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'key=AAAAPOKlPuE:APA91bEFvSBMpS_5pb8_1GRQAZGgnVLhyKF5RTG5zk-sGBPKm0XRnvNw_J0hhmdJ7Yyidjksgfux3O8-V69k3LDOeFgqP94AEL5uM7lm1fl_mgTtUyCKR-x4H9-qmth4IG1aIVtShxtT'
+      },
+      body: JSON.stringify({
+        "to": recipient,
+        "priority": "high",
+        "notification" : {
+          "body" : message,
+          "title": title,
+          "sound": "default",
+          "badge": 1
+        }
+      })
+    },
+    function (error, response, body) {
+      if(response.statusCode == 200){
+
+        console.log('Success');
+      } else {
+        console.log('error: '+ response.statusCode);
+      }
+    }
+  )
+}
 
 //***************VERIFICATION HANDLERS*************//
 
@@ -3296,10 +3783,10 @@ function sendUsersAttending(att, attendees, school, res){
      })
 }
 
-
+/*
 adminServer(function(appData) { //Initialize Admin Web Manager Api
     //Authentication
-
+    
     var isAuthenticated = jws.isAuthenticated(appData.appAdminSecret);
 
     appData.appAdmin.post('/api/token', function(req, res) {
@@ -3373,3 +3860,4 @@ adminServer(function(appData) { //Initialize Admin Web Manager Api
         //     });
     });
 });
+*/
