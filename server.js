@@ -2160,6 +2160,61 @@ app.get('/api/get_search_users_array', function(req, res){
 
 });
 
+app.get('/api/get_dashboard_data', function(req, res) {
+    // var token = req.query.token;
+
+    // var auth = authenticateToken(token);
+    // if(!auth.admin){
+    //     res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+    //     return;
+    // }
+
+    // incrementTokenCalls(token);
+
+    var school_identifier = req.query['school_identifier'];
+
+    if (!school_identifier) school_identifier = 'duke'; //for tests only
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    var dt = new Date().getTime();
+    databaseref.child('schools').once('value').then(function(snapshot) {
+        var schools = snapshot.val();
+        var selectedSchool = schools[school_identifier];
+        var schoolGroups = selectedSchool.groups || {};
+        //count users from all schools
+        var userCount = Object.keys(schools).reduce((count, id) => count + Object.keys(schools[id].users || {}).length, 0);
+        //count users from selected school
+        var schoolUserCount = Object.keys(selectedSchool.users || {}).length;
+        //Percentage of users who belongs to the selected school
+        var percentSchoolPopulation = (schoolUserCount / userCount * 100).toFixed(2);
+        //count groups with at least one member
+        var schoolActiveGroups = Object.keys(schoolGroups).filter(k => Object.keys(schoolGroups[k].members || {}).length).length;
+        //count members from groups of selected school
+        var schoolMemberCount = Object.keys(schoolGroups).reduce((count, id) => count + Object.keys(schoolGroups[id].members || {}).length, 0);
+        //avg grup size
+        var avgGroupSize = (schoolMemberCount / schoolActiveGroups).toFixed(2);
+
+        // console.log(schoolActiveGroups, schoolMemberCount);
+
+        // console.log(Object.keys(selectedSchool.groups || {}).length);
+        res.status(REQUESTSUCCESSFUL).send({
+            unique_users: userCount,
+            percent_school_population: percentSchoolPopulation,
+            //active_users
+            active_groups: schoolActiveGroups,
+            //avg_hosted_events_by_groups
+            avg_group_size: avgGroupSize
+        });
+
+    });
+
+
+});
+
 app.get('/api/get_search_groups_array', function(req, res){
   var token = req.query.token;
 
