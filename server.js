@@ -2468,11 +2468,8 @@ app.get('/api/get_dashboard_data', function(req, res) {
         //count members from groups of selected school
         var schoolMemberCount = Object.keys(schoolGroups).reduce((count, id) => count + Object.keys(schoolGroups[id].members || {}).length, 0);
         //avg grup size
-        var avgGroupSize = (schoolMemberCount / schoolActiveGroups).toFixed(2);
-
-        // console.log(schoolActiveGroups, schoolMemberCount);
-
-        // console.log(Object.keys(selectedSchool.groups || {}).length);
+        var avgGroupSize = (schoolActiveGroups === 0 ? 0 : schoolMemberCount / schoolActiveGroups).toFixed(2);
+        
         res.status(REQUESTSUCCESSFUL).send({
             unique_users: userCount,
             percent_school_population: percentSchoolPopulation,
