@@ -12,6 +12,7 @@ var bodyParser = require('body-parser');
 var randomcolor = require('randomcolor');
 //var adminServer = require('./admin-server'); //Admin web manager server
 var request = require('request');
+var _ = require('underscore'); //npm install underscore --save
 
 //***************CONSTANTS*************//
 
@@ -2432,58 +2433,6 @@ app.get('/api/get_search_users_array', function(req, res){
 
 });
 
-app.get('/api/get_dashboard_data', function(req, res) {
-    // var token = req.query.token;
-
-    // var auth = authenticateToken(token);
-    // if(!auth.admin){
-    //     res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
-    //     return;
-    // }
-
-    // incrementTokenCalls(token);
-
-    var school_identifier = req.query['school_identifier'];
-
-    if (!school_identifier) school_identifier = 'duke'; //for tests only
-
-    if(!school_identifier){
-        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
-        return;
-    }
-
-    var dt = new Date().getTime();
-    databaseref.child('schools').once('value').then(function(snapshot) {
-        var schools = snapshot.val();
-        var selectedSchool = schools[school_identifier];
-        var schoolGroups = selectedSchool.groups || {};
-        //count users from all schools
-        var userCount = Object.keys(schools).reduce((count, id) => count + Object.keys(schools[id].users || {}).length, 0);
-        //count users from selected school
-        var schoolUserCount = Object.keys(selectedSchool.users || {}).length;
-        //Percentage of users who belongs to the selected school
-        var percentSchoolPopulation = (schoolUserCount / userCount * 100).toFixed(2);
-        //count groups with at least one member
-        var schoolActiveGroups = Object.keys(schoolGroups).filter(k => Object.keys(schoolGroups[k].members || {}).length).length;
-        //count members from groups of selected school
-        var schoolMemberCount = Object.keys(schoolGroups).reduce((count, id) => count + Object.keys(schoolGroups[id].members || {}).length, 0);
-        //avg grup size
-        var avgGroupSize = (schoolActiveGroups === 0 ? 0 : schoolMemberCount / schoolActiveGroups).toFixed(2);
-        
-        res.status(REQUESTSUCCESSFUL).send({
-            unique_users: userCount,
-            percent_school_population: percentSchoolPopulation,
-            //active_users
-            active_groups: schoolActiveGroups,
-            //avg_hosted_events_by_groups
-            avg_group_size: avgGroupSize
-        });
-
-    });
-
-
-});
-
 app.get('/api/get_search_groups_array', function(req, res){
   var token = req.query.token;
 
@@ -3584,6 +3533,157 @@ app.post('/api/report_post', function(req, res){
     findPostToReport(uid, event, school, res);
 
 });
+
+
+app.get('/api/get_dashboard_data', function(req, res) {
+    // var token = req.query.token;
+
+    // var auth = authenticateToken(token);
+    // if(!auth.admin){
+    //     res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+    //     return;
+    // }
+
+    // incrementTokenCalls(token);
+
+    var school_identifier = req.query['school_identifier'];
+
+    if (!school_identifier) school_identifier = 'duke'; //for tests only
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    var dt = new Date().getTime();
+    databaseref.child('schools').once('value').then(function(snapshot) {
+        var schools = snapshot.val();
+        var selectedSchool = schools[school_identifier];
+        var schoolGroups = selectedSchool.groups || {};
+        //count users from all schools
+        var userCount = Object.keys(schools).reduce((count, id) => count + Object.keys(schools[id].users || {}).length, 0);
+        //count users from selected school
+        var schoolUserCount = Object.keys(selectedSchool.users || {}).length;
+        //Percentage of users who belongs to the selected school
+        var percentSchoolPopulation = (schoolUserCount / userCount * 100).toFixed(2);
+        //count groups with at least one member
+        var schoolActiveGroups = Object.keys(schoolGroups).filter(k => Object.keys(schoolGroups[k].members || {}).length).length;
+        //count members from groups of selected school
+        var schoolMemberCount = Object.keys(schoolGroups).reduce((count, id) => count + Object.keys(schoolGroups[id].members || {}).length, 0);
+        //avg grup size
+        var avgGroupSize = (schoolActiveGroups === 0 ? 0 : schoolMemberCount / schoolActiveGroups).toFixed(2);
+        
+        res.status(REQUESTSUCCESSFUL).send({
+            unique_users: userCount,
+            percent_school_population: percentSchoolPopulation,
+            //active_users
+            active_groups: schoolActiveGroups,
+            //avg_hosted_events_by_groups
+            avg_group_size: avgGroupSize
+        });
+
+    });
+});
+
+
+app.get('/api/get_grad_undergrad_chart_data', function(req, res) {
+    // var token = req.query.token;
+
+    // var auth = authenticateToken(token);
+    // if(!auth.admin){
+    //     res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+    //     return;
+    // }
+
+    // incrementTokenCalls(token);
+
+    var guid, school_identifier = req.query['school_identifier'];
+    if (school_identifier)
+        guid = req.query['guid'];
+
+
+    var ref = databaseref.child('schools');
+    if (school_identifier)
+        ref = ref.child(school_identifier);
+
+    ref.once('value').then(function(snapshot) {
+        var data = snapshot.val();
+        var users = [];
+        if (school_identifier) {
+            //if a school is selected, get all it's users with academic_level set, filtering by group membership, when selected
+            var group = guid ? data.groups[guid] : {};
+            users = Object.keys(data.users).map(k => data.users[k]).filter(u => {
+                if (!u.academic_level) return false;
+                if (!guid) return true;
+                return group.members && groups.members[u.user_id];
+            })
+        } else {
+            //if no schools are selected, just get all users from all schools with academic_level set
+            users = [].concat.apply([], Object.keys(data).map(k => {
+                var users = data[k].users;
+                return Object.keys(users).map(k => users[k]).filter(u => u.academic_level);
+            }));
+        }
+        var grad = 0, undergrad = 0;
+        users.forEach(u => {
+            if (u.academic_level === 'grad')
+                grad++;
+            else if (u.academic_level === 'undergrad')
+                undergrad++;
+        });
+
+        res.json([grad, undergrad]);
+    });
+});
+
+
+app.get('/api/get_grad_year_chart_data', function(req, res) {
+    // var token = req.query.token;
+
+    // var auth = authenticateToken(token);
+    // if(!auth.admin){
+    //     res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+    //     return;
+    // }
+
+    // incrementTokenCalls(token);
+
+    var guid, school_identifier = req.query['school_identifier'];
+    if (school_identifier)
+        guid = req.query['guid'];
+
+
+    var ref = databaseref.child('schools');
+    if (school_identifier)
+        ref = ref.child(school_identifier);
+
+    ref.once('value').then(function(snapshot) {
+        var data = snapshot.val();
+        var users = [];
+        if (school_identifier) {
+            //if a school is selected, get all it's users with graduation_year set, filtering by group membership, when selected
+            var group = guid ? data.groups[guid] : {};
+            users = Object.keys(data.users).map(k => data.users[k]).filter(u => {
+                if (!u.graduation_year) return false;
+                if (!guid) return true;
+                return group.members && groups.members[u.user_id];
+            })
+        } else {
+            //if no schools are selected, just get all users from all schools with graduation_year set
+            users = [].concat.apply([], Object.keys(data).map(k => {
+                var users = data[k].users;
+                return Object.keys(users).map(k => users[k]).filter(u => u.graduation_year);
+            }));
+        }
+        var countGradYear = _.countBy(users, 'graduation_year');
+        var years = Object.keys(countGradYear).sort();
+        res.json({
+            years: years,
+            data: years.map(y => countGradYear[y])
+        });
+    });
+});
+
 
 //***************HELPER FUNCTIONS*************//
 

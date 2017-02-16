@@ -15,8 +15,9 @@
     "fs": "*",
     "nodemailer": "*",
     "randomcolor": "*",
+    "request": "*",
     "token-generator": "*",
-    "request": "*"
+    "underscore": "^1.8.3"
   },
   "keywords": [],
   "author": "",
