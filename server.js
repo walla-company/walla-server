@@ -3636,11 +3636,6 @@ app.get('/api/get_grad_undergrad_chart_data', function(req, res) {
     });
 });
 
-
-app.post('/api/my_test', function(req, res) {
-    res.status(REQUESTSUCCESSFUL).json(req.body);
-});
-
 app.get('/api/get_grad_year_chart_data', function(req, res) {
     // var token = req.query.token;
 
