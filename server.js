@@ -872,7 +872,7 @@ app.get('/api/get_activities', function(req, res){
 
     console.log('timequery: ' + timequery);
 
-    databaseref.child('schools/' + school_identifier + '/activities/').orderByChild('start_time').startAt(timequery)
+    databaseref.child('schools/' + school_identifier + '/activities/').orderByChild('end_time').startAt(timequery)
         .once('value').then(function(snapshot){
             if(snapshot.val()) {
 
