@@ -830,6 +830,36 @@ app.get('/api/get_activity', function(req, res){
 
 });
 
+app.post('/api/delete_activity', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.read){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
+    var auid = req.query.auid;
+    var uid = req.query.uid;
+
+    if(!auid){
+        res.status(REQUESTBAD).send("invalid parameters: no auid");
+        return;
+    }
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+    
+    if(!uid){
+         databaseref.child('schools/' + school_identifier + '/activities/' + auid).child('deleted').set(true);
+    }
+});
+
 app.get('/api/get_activities', function(req, res){
     var token = req.query.token;
 
@@ -883,8 +913,8 @@ app.get('/api/get_activities', function(req, res){
                 if (!uid) {
         
                     Object.keys(snapshot.val()).forEach( function(key) {
-                    
-                        if (snapshot.val()[key]["public"]) {
+                        var event = snapshot.val();
+                        if (event[key]["public"] && !isEventDeleted(event)) {
                             activities.push(snapshot.val()[key]);
                         }
                     });
@@ -906,6 +936,14 @@ app.get('/api/get_activities', function(req, res){
     });
 
 });
+
+function isEventDeleted(event){
+    if(!event.hasOwnProperty('deleted')){
+        return false;
+    }
+    
+    return event['deleted'];
+}
 
 app.post('/api/invite_user', function(req, res){
   var token = req.query.token;
@@ -1126,7 +1164,7 @@ function userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activi
     var current_activity = all_activities[key];
     current_index = current_index + 1;
     
-    if (current_activity["public"]) {
+    if (current_activity["public"] && !isEventDeleted(current_activity)) {
                     
             console.log("Event public");
             activities.push(current_activity);
@@ -1638,7 +1676,17 @@ app.get('/api/get_user_calendar', function(req, res){
 
     databaseref.child('schools/' + school_identifier + '/users/' + uid + '/calendar').once('value').then(function(snapshot){
             if(snapshot.val()) {
-                res.status(REQUESTSUCCESSFUL).send(snapshot.val());
+                var eventstoreturn = {};
+                var events = snapshot.val();
+                var keyarr = Object.keys(events);
+                keysarr.forEach(function(key){
+                    var event = events[key];
+                    if(!isEventDeleted(event)){
+                        eventstoreturn[key] = event;
+                    }
+                });
+                
+                res.status(REQUESTSUCCESSFUL).send(eventstoreturn);
               }
             else {
                 res.status(REQUESTSUCCESSFUL).send({});
