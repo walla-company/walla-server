@@ -565,7 +565,8 @@ app.post('/api/add_activity', function(req, res){
       host_group_short_name: host_group_short_name,
       invited_users: invited_users_dic,
       invited_groups: invited_groups_dic,
-      replies: reply
+      replies: reply,
+      deleted: false
     };
 
     var newActivityRef = databaseref.child('schools/' + school_identifier + '/activities').push(activity);
