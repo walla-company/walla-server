@@ -595,66 +595,6 @@ app.post('/api/add_activity', function(req, res){
     res.status(REQUESTSUCCESSFUL).send('activity posted');
 });
 
-app.get('/api/delete_activity', function(req, res){
-  /*
-    var token = req.query.token;
-
-    var auth = authenticateToken(token);
-    if(!auth.admin && !auth.read){
-         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
-        return;
-    }
-
-    incrementTokenCalls(token);
-
-    var school_identifier = req.query.school_identifier;
-    var auid = req.query.auid;
-    var uid = req.query.uid;
-
-    if(!auid){
-        res.status(REQUESTBAD).send("invalid parameters: no auid");
-        return;
-    }
-
-    if(!school_identifier){
-        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
-        return;
-    }
-    
-    if(!uid){
-        //res.status(REQUESTBAD).send("invalid parameters: no uid");
-        databaseref.child('schools/' + school_identifier + '/activities/' + auid).once('value').then(function(snapshot){
-            if(snapshot.val()) {
-                res.status(REQUESTSUCCESSFUL).send(snapshot.val());
-            }
-            else {
-                res.status(REQUESTSUCCESSFUL).send({});
-            }
-        })
-        .catch(function(error){
-            res.status(REQUESTBAD).send(error);
-            console.log(error);
-    });
-        return;
-    }
-    
-    databaseref.child('schools/' + school_identifier + '/activities/' + auid).once('value').then(function(snapshot){
-            if(snapshot.val()) {
-                
-                userCanSeeEvent(uid, auid, school_identifier, res, snapshot.val());
-                
-            }
-            else {
-                res.status(REQUESTSUCCESSFUL).send({});
-            }
-        })
-        .catch(function(error){
-            res.status(REQUESTBAD).send(error);
-            console.log(error);
-    });
-    */
-});
-
 app.post('/api/interested', function(req, res){
     var token = req.query.token;
 
@@ -841,9 +781,9 @@ app.post('/api/delete_activity', function(req, res){
 
     incrementTokenCalls(token);
 
-    var school_identifier = req.query.school_identifier;
-    var auid = req.query.auid;
-    var uid = req.query.uid;
+    var school_identifier = req.body.school_identifier;
+    var auid = req.body.auid;
+    var uid = req.body.uid;
 
     if(!auid){
         res.status(REQUESTBAD).send("invalid parameters: no auid");
@@ -856,8 +796,32 @@ app.post('/api/delete_activity', function(req, res){
     }
     
     if(!uid){
-         databaseref.child('schools/' + school_identifier + '/activities/' + auid).child('deleted').set(true);
+      res.status(REQUESTBAD).send("invalid parameters: no uid");
+      return;
     }
+  
+    databaseref.child('schools/' + school_identifier + '/activities/' + auid).child('deleted').set(true);
+  
+    databaseref.child('schools/' + school_identifier + '/activities/' + auid).once('value').then(function(snapshot){
+            if(snapshot.val()) {
+                
+              var host_id = snapshot.val()["host"];
+              
+              if (host_id == uid) {
+                var host_id = snapshot.val()["host"];
+              }
+              
+              res.status(REQUESTSUCCESSFUL).send({});
+                
+            }
+            else {
+                res.status(REQUESTSUCCESSFUL).send({});
+            }
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
 });
 
 app.get('/api/get_activities', function(req, res){
