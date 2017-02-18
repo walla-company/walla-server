@@ -914,7 +914,13 @@ app.get('/api/get_activities', function(req, res){
         
                     Object.keys(snapshot.val()).forEach( function(key) {
                         var event = snapshot.val();
-                        if (event[key]["public"] && !isEventDeleted(event)) {
+                      
+                        var eventDeleted = false;
+                        if(event.hasOwnProperty('deleted')){
+                          eventDeleted = event['deleted'];
+                        }
+                      
+                        if (event[key]["public"] && !eventDeleted) {
                             activities.push(snapshot.val()[key]);
                         }
                     });
@@ -936,14 +942,6 @@ app.get('/api/get_activities', function(req, res){
     });
 
 });
-
-function isEventDeleted(event){
-    if(!event.hasOwnProperty('deleted')){
-        return false;
-    }
-    
-    return event['deleted'];
-}
 
 app.post('/api/invite_user', function(req, res){
   var token = req.query.token;
@@ -1164,33 +1162,52 @@ function userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activi
     var current_activity = all_activities[key];
     current_index = current_index + 1;
     
-    if (current_activity["public"] && !isEventDeleted(current_activity)) {
+    var eventDeleted = false;
+    if(current_activity.hasOwnProperty('deleted')){
+      eventDeleted = current_activity['deleted'];
+    }
+  
+    console.log("Event deleted: " + eventDeleted);
+  
+    if (current_activity["public"]) {
                     
-            console.log("Event public");
-            activities.push(current_activity);
-            userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
+      console.log("Event public");
+      
+      if (!eventDeleted) {
+        activities.push(current_activity);
+      }
+      
+      userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
             
-            return;
-        }
-        else if (current_activity["host"] == uid) {
+      return;
+    }
+    else if (current_activity["host"] == uid) {
                     
-            console.log("Event private: user can see (host)");
-            activities.push(current_activity);
-            userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
+      console.log("Event private: user can see (host)");
+      
+      if (!eventDeleted) {
+        activities.push(current_activity);
+      }
+      
+      userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
             
-            return;
+      return;
+    }
+                
+    for (var user_id in current_activity["invited_users"]) {
+      if (user_id == uid) {
+                
+        console.log("Event private: user can see (invited user)");
+              
+        if (!eventDeleted) {
+          activities.push(current_activity);
         }
+        
+        userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
                 
-        for (var user_id in current_activity["invited_users"]) {
-            if (user_id == uid) {
-                
-                console.log("Event private: user can see (invited user)");
-                activities.push(current_activity);
-                userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
-                
-                return;
-            }
-        }
+        return;
+      }
+    }
     
         databaseref.child('schools/' + school_identifier + '/users/' + uid + '/groups').once('value').then(function(snapshot){
             if(snapshot.val()) {
@@ -1199,7 +1216,11 @@ function userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activi
                     if (snapshot.val().hasOwnProperty(group_id)) {
                         
                         console.log("Event private: user can see (invited group)");
-                        activities.push(current_activity);
+                        
+                        if (!eventDeleted) {
+                          activities.push(current_activity);
+                        }
+                      
                         userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
                         
                         return;
@@ -1681,7 +1702,13 @@ app.get('/api/get_user_calendar', function(req, res){
                 var keyarr = Object.keys(events);
                 keysarr.forEach(function(key){
                     var event = events[key];
-                    if(!isEventDeleted(event)){
+                  
+                    var eventDeleted = false;
+                    if(event.hasOwnProperty('deleted')){
+                      eventDeleted = event['deleted'];
+                    }
+                  
+                    if(!eventDeleted){
                         eventstoreturn[key] = event;
                     }
                 });
