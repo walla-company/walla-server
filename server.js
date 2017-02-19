@@ -1665,7 +1665,7 @@ app.get('/api/get_user_calendar', function(req, res){
                 
               console.log("Keys:" + Object.keys(snapshot.val()));
               
-              checkIfActivityDeletedForCalendar(Object.keys(snapshot.val()), 0, [], res, school_identifier);
+              checkIfActivityDeletedForCalendar(snapshot.val(), 0, {}, res, school_identifier);
               }
             else {
                 res.status(REQUESTSUCCESSFUL).send({});
@@ -1682,13 +1682,13 @@ function checkIfActivityDeletedForCalendar(activity_ids, index, return_activitie
   
   console.log("Index: " + index + " :::: " + (activity_ids.length));
   
-  if (index == activity_ids.length) {
+  if (index == Object.keys(activity_ids).length) {
     res.status(REQUESTSUCCESSFUL).send(return_activities);
     
     return;
   }
   
-  var auid = activity_ids[index];
+  var auid = Object.keys(activity_ids)[index];
   
   console.log("Check if deleted: " + auid);
   
@@ -1703,7 +1703,8 @@ function checkIfActivityDeletedForCalendar(activity_ids, index, return_activitie
       }
                   
       if(!eventDeleted){
-        return_activities.push(auid);
+        //return_activities.push(auid);
+        return_activities[auid] = activity_ids[auid];
       }
     }
     
