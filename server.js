@@ -1662,23 +1662,10 @@ app.get('/api/get_user_calendar', function(req, res){
 
     databaseref.child('schools/' + school_identifier + '/users/' + uid + '/calendar').once('value').then(function(snapshot){
             if(snapshot.val()) {
-                var eventstoreturn = {};
-                var events = snapshot.val();
-                var keyarr = Object.keys(events);
-                keysarr.forEach(function(key){
-                    var event = events[key];
-                  
-                    var eventDeleted = false;
-                    if(event.hasOwnProperty('deleted')){
-                      eventDeleted = event['deleted'];
-                    }
-                  
-                    if(!eventDeleted){
-                        eventstoreturn[key] = event;
-                    }
-                });
                 
-                res.status(REQUESTSUCCESSFUL).send(eventstoreturn);
+              console.log("Keys:" + Object.keys(snapshot.val()));
+              
+              checkIfActivityDeletedForCalendar(Object.keys(snapshot.val()), 0, [], res, school_identifier);
               }
             else {
                 res.status(REQUESTSUCCESSFUL).send({});
@@ -1690,6 +1677,47 @@ app.get('/api/get_user_calendar', function(req, res){
     });
 
 });
+
+function checkIfActivityDeletedForCalendar(activity_ids, index, return_activities, res, school_identifier) {
+  
+  console.log("Index: " + index + " :::: " + (activity_ids.length));
+  
+  if (index == activity_ids.length) {
+    res.status(REQUESTSUCCESSFUL).send(return_activities);
+    
+    return;
+  }
+  
+  var auid = activity_ids[index];
+  
+  console.log("Check if deleted: " + auid);
+  
+  databaseref.child('schools/' + school_identifier + '/activities/' + auid).once('value').then(function(snapshot){
+    
+    if(snapshot.val()) {
+      
+      var eventDeleted = false;
+
+      if(snapshot.val().hasOwnProperty('deleted')){
+        eventDeleted = snapshot.val()['deleted'];
+      }
+                  
+      if(!eventDeleted){
+        return_activities.push(auid);
+      }
+    }
+    
+    index = index + 1;
+    checkIfActivityDeletedForCalendar(activity_ids, index, return_activities, res, school_identifier);
+    return;
+    
+  }).catch(function(error){
+    console.log("Error");
+    res.status(REQUESTBAD).send(error);
+    return;
+  });
+  
+}
 
 app.post('/api/update_user_first_name', function(req, res){
   var token = req.query.token;
