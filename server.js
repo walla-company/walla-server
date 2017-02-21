@@ -2913,6 +2913,12 @@ app.post('/api/post_discussion', function(req, res){
         return;
     }
     
+    //temporary measure to stop hugh neutron from posting comments
+    //delete after better solution has been found
+    if(uid === '9SICVXhnRGUB7KB58qiQhZp0XEF2'){
+        res.status(REQUESTBAD).send("user not allowed to post comments");
+    }
+    
     var text = req.body['text'];
     if(!text){
         res.status(REQUESTBAD).send("invalid parameters: no text");
