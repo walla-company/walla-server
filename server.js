@@ -2915,7 +2915,7 @@ app.post('/api/post_discussion', function(req, res){
     
     //temporary measure to stop hugh neutron from posting comments
     //delete after better solution has been found
-    if(uid === '9SICVXhnRGUB7KB58qiQhZp0XEF2'){
+    if(uid === '9SICVXhnRGUB7KB58qiQhZp0XEF2' || uid === '00UELlTJJlhDAn3K2haD2cXmadi1'){
         res.status(REQUESTBAD).send("user not allowed to post comments");
     }
     
