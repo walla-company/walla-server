@@ -2917,6 +2917,7 @@ app.post('/api/post_discussion', function(req, res){
     //delete after better solution has been found
     if(uid === '9SICVXhnRGUB7KB58qiQhZp0XEF2' || uid === '00UELlTJJlhDAn3K2haD2cXmadi1'){
         res.status(REQUESTBAD).send("user not allowed to post comments");
+        return;
     }
     
     var text = req.body['text'];
