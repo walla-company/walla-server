@@ -3424,6 +3424,40 @@ app.get('/api/get_user_verified', function(req, res){
 
 });
 
+//***************FLAG HANDLERS*************//
+
+app.post('/api/flag_activity', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.write){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    var school_identifier = req.body['school_identifier'];
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    var auid = req.body['auid'];
+    if(!auid){
+        res.status(REQUESTBAD).send("invalid parameters: no event key");
+        return;
+    }
+
+    var uid = req.body['uid'];
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+  
+    databaseref.child("schools").child(school_identifier).child("flagged_activities").child(auid).child(uid).set(new Date().getTime() / 1000);
+    
+    res.status(REQUESTSUCCESSFUL).send("activity flagged");
+});
+
 //***************OLD*************//
 
 //.../api/min_version?platform=android
