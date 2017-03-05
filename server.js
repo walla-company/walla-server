@@ -363,6 +363,76 @@ app.post('/api/add_group', function(req, res){
     res.status(REQUESTSUCCESSFUL).send('group ' + name + 'added');
 });
 
+app.get('/api/get_inactive_users', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin) {
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+    
+    var timequery = new Date().getTime() / 1000 - 2592000;
+
+    incrementTokenCalls(token);
+
+    console.log('timequery: ' + timequery);
+
+    databaseref.child('schools/' + school_identifier + '/users/').once('value').then(function(snapshot){
+            if(snapshot.val()) {
+                
+              var inactive_users = [];
+              
+              Object.keys(snapshot.val()).forEach( function(key) {
+                var user = snapshot.val()[key];
+                
+                if (user.hasOwnProperty("last_logon")) {
+                  if (user["last_logon"] <= timequery) {
+                    var user_info = {
+                    uid: user["user_id"],
+                    email: user["email"],
+                    first_name: user["first_name"],
+                    last_name: user["last_name"]
+                  };
+                  
+                  inactive_users.push(user_info);
+                  }
+                }
+                else {
+                  var user_info = {
+                    uid: user["user_id"],
+                    email: user["email"],
+                    first_name: user["first_name"],
+                    last_name: user["last_name"]
+                  };
+                  
+                  inactive_users.push(user_info);
+                }
+                
+              });
+              
+              res.status(REQUESTSUCCESSFUL).send(inactive_users);
+              
+            }
+            else {
+                res.status(REQUESTSUCCESSFUL).send({});
+              }
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+});
 
 //***************DOMAIN HANDLERS*************//
 
