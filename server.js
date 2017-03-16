@@ -4244,7 +4244,7 @@ app.get('/api/get_dashboard_users_data', function(req, res) {
         //count of users from all schools
         var unique_users = values[1].numChildren();
         //sessions
-        var sessions_log = values[2].val();
+        var sessions_log = values[2].val() ||  {};
         //school activities
         var schoolActivities = values[3].val();
         //count users from selected school
@@ -4254,7 +4254,7 @@ app.get('/api/get_dashboard_users_data', function(req, res) {
         
         //if a school is selected, get all it's users with academic_level set, filtering by group membership, when selected
         var group = guid ? selectedSchool.groups[guid] : {};
-        var filteredUsers = users = Object.keys(selectedSchool.users).map(k => selectedSchool.users[k]).filter(u => {
+        var filteredUsers = users = Object.keys(selectedSchool.users || {}).map(k => selectedSchool.users[k]).filter(u => {
             if (!guid) return true;
             return group.members && groups.members[u.user_id];
         });
@@ -4280,7 +4280,7 @@ app.get('/api/get_dashboard_users_data', function(req, res) {
         });
 
         const groups_hosting = [];
-        Object.keys(schoolActivities).map(k => schoolActivities[k]).forEach(a => {
+        Object.keys(schoolActivities ||  {}).map(k => schoolActivities[k]).forEach(a => {
             if (a.host_group) {
                 groups_hosting.push(a.host_group);
             }
@@ -4345,7 +4345,7 @@ app.get('/api/get_dashboard_users_data', function(req, res) {
 
         // by day
         
-        const selected_day_hours = Object.keys(sessions_log.sessions_by_hour).sort()
+        const selected_day_hours = Object.keys(sessions_log.sessions_by_hour ||  {}).sort()
         // filter 'by hours' sessions using the selected day
         .filter(k => moment(k, hourFormat).startOf('day').diff(selected_date, 'days') === 0);
 
@@ -4361,7 +4361,7 @@ app.get('/api/get_dashboard_users_data', function(req, res) {
             } else {
                 sessions_by_day.push({
                     label,
-                    count: Object.keys(sessions_log.sessions_by_hour[currentHourThisDay][guid ? 'groups' : 'sessions'] || {}).length
+                    count: Object.keys((sessions_log.sessions_by_hour ||  {})[currentHourThisDay][guid ? 'groups' : 'sessions'] || {}).length
                 });
             }
         }
@@ -4371,7 +4371,7 @@ app.get('/api/get_dashboard_users_data', function(req, res) {
         const startOfWeek = moment(selected_date).startOf('week');
         const endOfWeek = moment(selected_date).endOf('week');
 
-        const selected_week_days = Object.keys(sessions_log.sessions_by_day).sort()
+        const selected_week_days = Object.keys(sessions_log.sessions_by_day ||  {}).sort()
         // filter 'by days' sessions using the selected day
         .filter(k => moment(k, dayFormat).isBetween(startOfWeek, endOfWeek, null, '[]'));
 
@@ -4387,7 +4387,7 @@ app.get('/api/get_dashboard_users_data', function(req, res) {
             } else {
                 sessions_by_week.push({
                     label,
-                    count: Object.keys(sessions_log.sessions_by_day[currentDayThisWeek][guid ? 'groups' : 'sessions'] || {}).length
+                    count: Object.keys((sessions_log.sessions_by_day ||  {})[currentDayThisWeek][guid ? 'groups' : 'sessions'] || {}).length
                 });
             }
         }
@@ -4398,7 +4398,7 @@ app.get('/api/get_dashboard_users_data', function(req, res) {
         const endOfMonth = moment(selected_date).endOf('month');
         const numOfDaysInMonth = moment(selected_date).daysInMonth();
 
-        const selected_month_days = Object.keys(sessions_log.sessions_by_day).sort()
+        const selected_month_days = Object.keys(sessions_log.sessions_by_day ||  {}).sort()
         // filter 'by days' sessions using the selected day
         .filter(k => moment(k, dayFormat).isBetween(startOfMonth, endOfMonth, null, '[]'));
 
@@ -4416,7 +4416,7 @@ app.get('/api/get_dashboard_users_data', function(req, res) {
             } else {
                 sessions_by_month.push({
                     label,
-                    count: Object.keys(sessions_log.sessions_by_day[currentDayThisMonth][guid ? 'groups' : 'sessions'] || {}).length
+                    count: Object.keys((sessions_log.sessions_by_day ||  {})[currentDayThisMonth][guid ? 'groups' : 'sessions'] || {}).length
                 });
             }
         }
@@ -4427,7 +4427,7 @@ app.get('/api/get_dashboard_users_data', function(req, res) {
         const startOfYear = moment(selected_date).startOf('year');
         const endOfYear = moment(selected_date).endOf('year');
 
-        const selected_year_months = Object.keys(sessions_log.sessions_by_month).sort()
+        const selected_year_months = Object.keys(sessions_log.sessions_by_month ||  {}).sort()
         // filter 'by days' sessions using the selected day
         .filter(k => moment(k, monthFormat).isBetween(startOfYear, endOfYear, null, '[]'));
 
@@ -4443,15 +4443,15 @@ app.get('/api/get_dashboard_users_data', function(req, res) {
             } else {
                 sessions_by_year.push({
                     label,
-                    count: Object.keys(sessions_log.sessions_by_month[currentMonthThisYear][guid ? 'groups' : 'sessions'] || {}).length
+                    count: Object.keys((sessions_log.sessions_by_month ||  {})[currentMonthThisYear][guid ? 'groups' : 'sessions'] || {}).length
                 });
             }
         }
 
         //daily active users
-        const total_days = Object.keys(sessions_log.sessions_by_day).length;
-        const total_unique_sessions = Object.keys(sessions_log.sessions_by_day)
-                            .map(k => Object.keys(sessions_log.sessions_by_day[k].sessions).length)
+        const total_days = Object.keys(sessions_log.sessions_by_day ||  {}).length;
+        const total_unique_sessions = Object.keys(sessions_log.sessions_by_day ||  {})
+                            .map(k => Object.keys((sessions_log.sessions_by_day ||  {})[k].sessions).length)
                             .reduce((prev, cur) => prev + cur, 0);
                             
         const daily_active_users = Math.round(total_unique_sessions / total_days);
