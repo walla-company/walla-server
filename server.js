@@ -1583,6 +1583,7 @@ app.get('/api/get_user_basic_info', function(req, res){
             if(snapshot.val()) {
                 var basic_info = {
                   name: snapshot.val()["first_name"] + " " + snapshot.val()["last_name"],
+                  name: snapshot.val()["first_name"],
                   graduation_year: snapshot.val()["graduation_year"],
                   major: snapshot.val()["major"],
                   academic_level: snapshot.val()["academic_level"],
