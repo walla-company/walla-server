@@ -395,6 +395,76 @@ app.post('/api/add_group', function(req, res){
     res.status(REQUESTSUCCESSFUL).send('group ' + name + 'added');
 });
 
+app.get('/api/get_inactive_users', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin) {
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+    
+    var timequery = new Date().getTime() / 1000 - 2592000;
+
+    incrementTokenCalls(token);
+
+    console.log('timequery: ' + timequery);
+
+    databaseref.child('schools/' + school_identifier + '/users/').once('value').then(function(snapshot){
+            if(snapshot.val()) {
+                
+              var inactive_users = [];
+              
+              Object.keys(snapshot.val()).forEach( function(key) {
+                var user = snapshot.val()[key];
+                
+                if (user.hasOwnProperty("last_logon")) {
+                  if (user["last_logon"] <= timequery) {
+                    var user_info = {
+                    uid: user["user_id"],
+                    email: user["email"],
+                    first_name: user["first_name"],
+                    last_name: user["last_name"]
+                  };
+                  
+                  inactive_users.push(user_info);
+                  }
+                }
+                else {
+                  var user_info = {
+                    uid: user["user_id"],
+                    email: user["email"],
+                    first_name: user["first_name"],
+                    last_name: user["last_name"]
+                  };
+                  
+                  inactive_users.push(user_info);
+                }
+                
+              });
+              
+              res.status(REQUESTSUCCESSFUL).send(inactive_users);
+              
+            }
+            else {
+                res.status(REQUESTSUCCESSFUL).send({});
+              }
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+
+});
 
 //***************DOMAIN HANDLERS*************//
 
@@ -457,16 +527,18 @@ app.post('/api/add_activity', function(req, res){
     var location_address = req.body['location_address'];
     var location_lat = req.body['location_lat'];
     var location_long = req.body['location_long'];
-    var activity_public = req.body['activity_public'];
     var interests = req.body['interests'];
     var host = req.body['host'];
-    var details = req.body['details'];
     var host_group = req.body['host_group'];
     var host_group_name = req.body['host_group_name'];
     var host_group_short_name = req.body['host_group_short_name'];
-    var invited_users = req.body['invited_users'];
-    var invited_groups = req.body['invited_groups'];
-    var can_others_invite = req.body['can_others_invite'];
+  
+    /* Not required in request */
+    var activity_public = true;//req.body['activity_public'];
+    var details = "";//req.body['details'];
+    var invited_users = [];//req.body['invited_users'];
+    var invited_groups = [];//req.body['invited_groups'];
+    var can_others_invite = true;//req.body['can_others_invite'];
 
     if (!school_identifier) {
       res.status(REQUESTBAD).send("invalid parameters: no school identifier");
@@ -494,28 +566,33 @@ app.post('/api/add_activity', function(req, res){
     }
 
     if (!location_address) {
-      res.status(REQUESTBAD).send("invalid parameters: no location address");
-      return;
+      //res.status(REQUESTBAD).send("invalid parameters: no location address");
+      //return;
+      location_address = "";
     }
 
     if (!location_lat) {
-      res.status(REQUESTBAD).send("invalid parameters: no location lat");
-      return;
+      //res.status(REQUESTBAD).send("invalid parameters: no location lat");
+      //return;
+      location_lat = 0;
     }
 
     if (!location_long) {
-      res.status(REQUESTBAD).send("invalid parameters: no location long");
-      return;
+      //res.status(REQUESTBAD).send("invalid parameters: no location long");
+      //return;
+      location_long = 0;
     }
 
     if (activity_public == null) {
-      res.status(REQUESTBAD).send("invalid parameters: no activity public");
-      return;
+      //res.status(REQUESTBAD).send("invalid parameters: no activity public");
+      //return;
+      activity_public = true;
     }
-
+    
     if (!interests) {
-      res.status(REQUESTBAD).send("invalid parameters: no interests");
-      return;
+      //res.status(REQUESTBAD).send("invalid parameters: no interests");
+      //return;
+      interests = [];
     }
 
     if (!host) {
@@ -551,7 +628,7 @@ app.post('/api/add_activity', function(req, res){
       invited_groups = [];
     }
 
-    if (title.length > 80) {
+    if (title.length > 500) {
       res.status(REQUESTBAD).send("invalid parameters: title too long");
       return;
     }
@@ -562,10 +639,10 @@ app.post('/api/add_activity', function(req, res){
     }
 
     var current_time = new Date().getTime() / 1000;
-
+    
     var invited_users_dic = {};
     var invited_groups_dic = {};
-
+    /*
     invited_users.forEach( function(uid) {
       invited_users_dic[uid] = current_time;
     });
@@ -573,7 +650,7 @@ app.post('/api/add_activity', function(req, res){
     invited_groups.forEach( function(guid) {
       invited_groups_dic[guid] = current_time;
     });
-
+    */
     var reply = {};
     reply[host] = "going";
 
@@ -598,22 +675,24 @@ app.post('/api/add_activity', function(req, res){
       host_group_short_name: host_group_short_name,
       invited_users: invited_users_dic,
       invited_groups: invited_groups_dic,
-      replies: reply
+      replies: reply,
+      deleted: false
     };
-
+  
     var newActivityRef = databaseref.child('schools/' + school_identifier + '/activities').push(activity);
     var auid = newActivityRef.key;
 
     newActivityRef.child('activity_id').set(auid);
-
+    
     if (host_group != "") {
       databaseref.child('schools/' + school_identifier + '/groups/' + host_group + '/activities/' + auid).set(current_time);
     }
-
+    
     databaseref.child('schools/' + school_identifier + '/users/' + host + '/activities/' + auid).set(current_time);
 
     databaseref.child('schools/' + school_identifier + '/users/' + host + '/calendar/' + auid).set(current_time);
-
+    
+    /*
     console.log('invited_users: ' + invited_users);
     console.log('invited_groups: ' + invited_groups);
 
@@ -624,68 +703,9 @@ app.post('/api/add_activity', function(req, res){
     invited_groups.forEach( function(guid) {
       inviteGroup(guid, school_identifier, auid, title);
     });
-
-    res.status(REQUESTSUCCESSFUL).send('activity posted');
-});
-
-app.get('/api/delete_activity', function(req, res){
-  /*
-    var token = req.query.token;
-
-    var auth = authenticateToken(token);
-    if(!auth.admin && !auth.read){
-         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
-        return;
-    }
-
-    incrementTokenCalls(token);
-
-    var school_identifier = req.query.school_identifier;
-    var auid = req.query.auid;
-    var uid = req.query.uid;
-
-    if(!auid){
-        res.status(REQUESTBAD).send("invalid parameters: no auid");
-        return;
-    }
-
-    if(!school_identifier){
-        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
-        return;
-    }
-    
-    if(!uid){
-        //res.status(REQUESTBAD).send("invalid parameters: no uid");
-        databaseref.child('schools/' + school_identifier + '/activities/' + auid).once('value').then(function(snapshot){
-            if(snapshot.val()) {
-                res.status(REQUESTSUCCESSFUL).send(snapshot.val());
-            }
-            else {
-                res.status(REQUESTSUCCESSFUL).send({});
-            }
-        })
-        .catch(function(error){
-            res.status(REQUESTBAD).send(error);
-            console.log(error);
-    });
-        return;
-    }
-    
-    databaseref.child('schools/' + school_identifier + '/activities/' + auid).once('value').then(function(snapshot){
-            if(snapshot.val()) {
-                
-                userCanSeeEvent(uid, auid, school_identifier, res, snapshot.val());
-                
-            }
-            else {
-                res.status(REQUESTSUCCESSFUL).send({});
-            }
-        })
-        .catch(function(error){
-            res.status(REQUESTBAD).send(error);
-            console.log(error);
-    });
     */
+    
+    res.status(REQUESTSUCCESSFUL).send('activity posted: ' + activity['location']['lat']);
 });
 
 app.post('/api/interested', function(req, res){
@@ -863,6 +883,60 @@ app.get('/api/get_activity', function(req, res){
 
 });
 
+app.post('/api/delete_activity', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.read){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.body.school_identifier;
+    var auid = req.body.auid;
+    var uid = req.body.uid;
+
+    if(!auid){
+        res.status(REQUESTBAD).send("invalid parameters: no auid");
+        return;
+    }
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+    
+    if(!uid){
+      res.status(REQUESTBAD).send("invalid parameters: no uid");
+      return;
+    }
+  
+    databaseref.child('schools/' + school_identifier + '/activities/' + auid).child('deleted').set(true);
+  
+    databaseref.child('schools/' + school_identifier + '/activities/' + auid).once('value').then(function(snapshot){
+            if(snapshot.val()) {
+                
+              var host_id = snapshot.val()["host"];
+              
+              if (host_id == uid) {
+                var host_id = snapshot.val()["host"];
+              }
+              
+              res.status(REQUESTSUCCESSFUL).send({});
+                
+            }
+            else {
+                res.status(REQUESTSUCCESSFUL).send({});
+            }
+        })
+        .catch(function(error){
+            res.status(REQUESTBAD).send(error);
+            console.log(error);
+    });
+});
+
 app.get('/api/get_activities', function(req, res){
     var token = req.query.token;
 
@@ -916,8 +990,14 @@ app.get('/api/get_activities', function(req, res){
                 if (!uid) {
         
                     Object.keys(snapshot.val()).forEach( function(key) {
-                    
-                        if (snapshot.val()[key]["public"]) {
+                        var event = snapshot.val();
+                      
+                        var eventDeleted = false;
+                        if(event.hasOwnProperty('deleted')){
+                          eventDeleted = event['deleted'];
+                        }
+                      
+                        if (event[key]["public"] && !eventDeleted) {
                             activities.push(snapshot.val()[key]);
                         }
                     });
@@ -1159,33 +1239,52 @@ function userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activi
     var current_activity = all_activities[key];
     current_index = current_index + 1;
     
+    var eventDeleted = false;
+    if(current_activity.hasOwnProperty('deleted')){
+      eventDeleted = current_activity['deleted'];
+    }
+  
+    console.log("Event deleted: " + eventDeleted);
+  
     if (current_activity["public"]) {
                     
-            console.log("Event public");
-            activities.push(current_activity);
-            userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
+      console.log("Event public");
+      
+      if (!eventDeleted) {
+        activities.push(current_activity);
+      }
+      
+      userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
             
-            return;
-        }
-        else if (current_activity["host"] == uid) {
+      return;
+    }
+    else if (current_activity["host"] == uid) {
                     
-            console.log("Event private: user can see (host)");
-            activities.push(current_activity);
-            userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
+      console.log("Event private: user can see (host)");
+      
+      if (!eventDeleted) {
+        activities.push(current_activity);
+      }
+      
+      userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
             
-            return;
+      return;
+    }
+                
+    for (var user_id in current_activity["invited_users"]) {
+      if (user_id == uid) {
+                
+        console.log("Event private: user can see (invited user)");
+              
+        if (!eventDeleted) {
+          activities.push(current_activity);
         }
+        
+        userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
                 
-        for (var user_id in current_activity["invited_users"]) {
-            if (user_id == uid) {
-                
-                console.log("Event private: user can see (invited user)");
-                activities.push(current_activity);
-                userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
-                
-                return;
-            }
-        }
+        return;
+      }
+    }
     
         databaseref.child('schools/' + school_identifier + '/users/' + uid + '/groups').once('value').then(function(snapshot){
             if(snapshot.val()) {
@@ -1194,7 +1293,11 @@ function userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activi
                     if (snapshot.val().hasOwnProperty(group_id)) {
                         
                         console.log("Event private: user can see (invited group)");
-                        activities.push(current_activity);
+                        
+                        if (!eventDeleted) {
+                          activities.push(current_activity);
+                        }
+                      
                         userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
                         
                         return;
@@ -1319,17 +1422,21 @@ app.post('/api/add_user', function(req, res){
 
 //   incrementTokenCalls(token);
 
+  console.log(JSON.stringify(req.body));
+  
   var uid = req.body['uid'];
   var school_identifier = req.body['school_identifier'];
   var first_name = req.body["first_name"];
   var last_name = req.body["last_name"];
   var email = req.body["email"];
-  var academic_level = req.body["academic_level"];
-  var major = req.body["major"];
-  var graduation_year = req.body["graduation_year"];
-  var hometown = req.body["hometown"];
-  var description = req.body["description"];
   var profile_image_url = req.body["profile_image_url"];
+  
+  /* Not required */
+  var academic_level = "";//req.body["academic_level"];
+  var major = "";//req.body["major"];
+  var graduation_year = -1;//req.body["graduation_year"];
+  var hometown = "";//req.body["hometown"];
+  var description = "";//req.body["description"];
 
   if(!uid){
       res.status(REQUESTBAD).send("invalid parameters: no uid");
@@ -1355,7 +1462,7 @@ app.post('/api/add_user', function(req, res){
       res.status(REQUESTBAD).send("invalid parameters: no email");
       return;
   }
-
+  /*
   if(!academic_level){
       res.status(REQUESTBAD).send("invalid parameters: no academic level");
       return;
@@ -1378,7 +1485,7 @@ app.post('/api/add_user', function(req, res){
   if(!description){
       description = "";
   }
-
+  */
   if(!profile_image_url){
       profile_image_url = "";
   }
@@ -1397,6 +1504,7 @@ app.post('/api/add_user', function(req, res){
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/description').set(description);
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/profile_image_url').set(profile_image_url);
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/time_created').set(current_time*1.0);
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/intro_complete').set(false);
 
   databaseref.child('schools/' + school_identifier + '/search_users_array/' + uid).set(first_name + " " + last_name);
 
@@ -1508,6 +1616,7 @@ app.get('/api/get_user_basic_info', function(req, res){
             if(snapshot.val()) {
                 var basic_info = {
                   name: snapshot.val()["first_name"] + " " + snapshot.val()["last_name"],
+                  first_name: snapshot.val()["first_name"],
                   graduation_year: snapshot.val()["graduation_year"],
                   major: snapshot.val()["major"],
                   academic_level: snapshot.val()["academic_level"],
@@ -1671,7 +1780,10 @@ app.get('/api/get_user_calendar', function(req, res){
 
     databaseref.child('schools/' + school_identifier + '/users/' + uid + '/calendar').once('value').then(function(snapshot){
             if(snapshot.val()) {
-                res.status(REQUESTSUCCESSFUL).send(snapshot.val());
+                
+              console.log("Keys:" + Object.keys(snapshot.val()));
+              
+              checkIfActivityDeletedForCalendar(snapshot.val(), 0, {}, res, school_identifier);
               }
             else {
                 res.status(REQUESTSUCCESSFUL).send({});
@@ -1683,6 +1795,48 @@ app.get('/api/get_user_calendar', function(req, res){
     });
 
 });
+
+function checkIfActivityDeletedForCalendar(activity_ids, index, return_activities, res, school_identifier) {
+  
+  console.log("Index: " + index + " :::: " + (activity_ids.length));
+  
+  if (index == Object.keys(activity_ids).length) {
+    res.status(REQUESTSUCCESSFUL).send(return_activities);
+    
+    return;
+  }
+  
+  var auid = Object.keys(activity_ids)[index];
+  
+  console.log("Check if deleted: " + auid);
+  
+  databaseref.child('schools/' + school_identifier + '/activities/' + auid).once('value').then(function(snapshot){
+    
+    if(snapshot.val()) {
+      
+      var eventDeleted = false;
+
+      if(snapshot.val().hasOwnProperty('deleted')){
+        eventDeleted = snapshot.val()['deleted'];
+      }
+                  
+      if(!eventDeleted){
+        //return_activities.push(auid);
+        return_activities[auid] = activity_ids[auid];
+      }
+    }
+    
+    index = index + 1;
+    checkIfActivityDeletedForCalendar(activity_ids, index, return_activities, res, school_identifier);
+    return;
+    
+  }).catch(function(error){
+    console.log("Error");
+    res.status(REQUESTBAD).send(error);
+    return;
+  });
+  
+}
 
 app.post('/api/update_user_first_name', function(req, res){
   var token = req.query.token;
@@ -2098,6 +2252,36 @@ app.post('/api/update_user_last_logon', function(req, res){
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/last_logon').set(last_logon*1.0);
 
   res.status(REQUESTSUCCESSFUL).send('lats logon updated');
+
+});
+
+app.post('/api/user_intro_complete', function(req, res){
+  var token = req.query.token;
+
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
+
+  incrementTokenCalls(token);
+
+  var uid = req.body['uid'];
+  var school_identifier = req.body['school_identifier'];
+
+  if(!uid){
+      res.status(REQUESTBAD).send("invalid parameters: no uid");
+      return;
+  }
+
+  if(!school_identifier){
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+  }
+
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/intro_complete').set(true);
+
+  res.status(REQUESTSUCCESSFUL).send('intro complete updated');
 
 });
 
@@ -2904,6 +3088,13 @@ app.post('/api/post_discussion', function(req, res){
         return;
     }
     
+    //temporary measure to stop hugh neutron from posting comments
+    //delete after better solution has been found
+    if(uid === '9SICVXhnRGUB7KB58qiQhZp0XEF2' || uid === '00UELlTJJlhDAn3K2haD2cXmadi1'){
+        res.status(REQUESTBAD).send("user not allowed to post comments");
+        return;
+    }
+    
     var text = req.body['text'];
     if(!text){
         res.status(REQUESTBAD).send("invalid parameters: no text");
@@ -3406,6 +3597,40 @@ app.get('/api/get_user_verified', function(req, res){
             console.log(error);
     });
 
+});
+
+//***************FLAG HANDLERS*************//
+
+app.post('/api/flag_activity', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.write){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    var school_identifier = req.body['school_identifier'];
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    var auid = req.body['auid'];
+    if(!auid){
+        res.status(REQUESTBAD).send("invalid parameters: no event key");
+        return;
+    }
+
+    var uid = req.body['uid'];
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+  
+    databaseref.child("schools").child(school_identifier).child("flagged_activities").child(auid).child(uid).set(new Date().getTime() / 1000);
+    
+    res.status(REQUESTSUCCESSFUL).send("activity flagged");
 });
 
 //***************OLD*************//
