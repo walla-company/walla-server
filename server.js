@@ -1389,6 +1389,8 @@ app.post('/api/add_user', function(req, res){
 
   incrementTokenCalls(token);
 
+  console.log(JSON.stringify(req.body));
+  
   var uid = req.body['uid'];
   var school_identifier = req.body['school_identifier'];
   var first_name = req.body["first_name"];
