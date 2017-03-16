@@ -495,16 +495,18 @@ app.post('/api/add_activity', function(req, res){
     var location_address = req.body['location_address'];
     var location_lat = req.body['location_lat'];
     var location_long = req.body['location_long'];
-    var activity_public = req.body['activity_public'];
     var interests = req.body['interests'];
     var host = req.body['host'];
-    var details = req.body['details'];
     var host_group = req.body['host_group'];
     var host_group_name = req.body['host_group_name'];
     var host_group_short_name = req.body['host_group_short_name'];
-    var invited_users = req.body['invited_users'];
-    var invited_groups = req.body['invited_groups'];
-    var can_others_invite = req.body['can_others_invite'];
+  
+    /* Not required in request */
+    var activity_public = true;//req.body['activity_public'];
+    var details = "";//req.body['details'];
+    var invited_users = [];//req.body['invited_users'];
+    var invited_groups = [];//req.body['invited_groups'];
+    var can_others_invite = true;//req.body['can_others_invite'];
 
     if (!school_identifier) {
       res.status(REQUESTBAD).send("invalid parameters: no school identifier");
@@ -532,28 +534,33 @@ app.post('/api/add_activity', function(req, res){
     }
 
     if (!location_address) {
-      res.status(REQUESTBAD).send("invalid parameters: no location address");
-      return;
+      //res.status(REQUESTBAD).send("invalid parameters: no location address");
+      //return;
+      location_address = "";
     }
 
     if (!location_lat) {
-      res.status(REQUESTBAD).send("invalid parameters: no location lat");
-      return;
+      //res.status(REQUESTBAD).send("invalid parameters: no location lat");
+      //return;
+      location_lat = 0;
     }
 
     if (!location_long) {
-      res.status(REQUESTBAD).send("invalid parameters: no location long");
-      return;
+      //res.status(REQUESTBAD).send("invalid parameters: no location long");
+      //return;
+      location_long = 0;
     }
 
     if (activity_public == null) {
-      res.status(REQUESTBAD).send("invalid parameters: no activity public");
-      return;
+      //res.status(REQUESTBAD).send("invalid parameters: no activity public");
+      //return;
+      activity_public = true;
     }
-
+    
     if (!interests) {
-      res.status(REQUESTBAD).send("invalid parameters: no interests");
-      return;
+      //res.status(REQUESTBAD).send("invalid parameters: no interests");
+      //return;
+      interests = [];
     }
 
     if (!host) {
@@ -589,7 +596,7 @@ app.post('/api/add_activity', function(req, res){
       invited_groups = [];
     }
 
-    if (title.length > 80) {
+    if (title.length > 500) {
       res.status(REQUESTBAD).send("invalid parameters: title too long");
       return;
     }
@@ -600,10 +607,10 @@ app.post('/api/add_activity', function(req, res){
     }
 
     var current_time = new Date().getTime() / 1000;
-
+    
     var invited_users_dic = {};
     var invited_groups_dic = {};
-
+    /*
     invited_users.forEach( function(uid) {
       invited_users_dic[uid] = current_time;
     });
@@ -611,7 +618,7 @@ app.post('/api/add_activity', function(req, res){
     invited_groups.forEach( function(guid) {
       invited_groups_dic[guid] = current_time;
     });
-
+    */
     var reply = {};
     reply[host] = "going";
 
@@ -638,20 +645,21 @@ app.post('/api/add_activity', function(req, res){
       replies: reply,
       deleted: false
     };
-
+  
     var newActivityRef = databaseref.child('schools/' + school_identifier + '/activities').push(activity);
     var auid = newActivityRef.key;
 
     newActivityRef.child('activity_id').set(auid);
-
+    
     if (host_group != "") {
       databaseref.child('schools/' + school_identifier + '/groups/' + host_group + '/activities/' + auid).set(current_time);
     }
-
+    
     databaseref.child('schools/' + school_identifier + '/users/' + host + '/activities/' + auid).set(current_time);
 
     databaseref.child('schools/' + school_identifier + '/users/' + host + '/calendar/' + auid).set(current_time);
-
+    
+    /*
     console.log('invited_users: ' + invited_users);
     console.log('invited_groups: ' + invited_groups);
 
@@ -662,8 +670,9 @@ app.post('/api/add_activity', function(req, res){
     invited_groups.forEach( function(guid) {
       inviteGroup(guid, school_identifier, auid, title);
     });
-
-    res.status(REQUESTSUCCESSFUL).send('activity posted');
+    */
+    
+    res.status(REQUESTSUCCESSFUL).send('activity posted: ' + activity['location']['lat']);
 });
 
 app.post('/api/interested', function(req, res){
@@ -1385,12 +1394,14 @@ app.post('/api/add_user', function(req, res){
   var first_name = req.body["first_name"];
   var last_name = req.body["last_name"];
   var email = req.body["email"];
-  var academic_level = req.body["academic_level"];
-  var major = req.body["major"];
-  var graduation_year = req.body["graduation_year"];
-  var hometown = req.body["hometown"];
-  var description = req.body["description"];
   var profile_image_url = req.body["profile_image_url"];
+  
+  /* Not required */
+  var academic_level = "";//req.body["academic_level"];
+  var major = "";//req.body["major"];
+  var graduation_year = -1;//req.body["graduation_year"];
+  var hometown = "";//req.body["hometown"];
+  var description = "";//req.body["description"];
 
   if(!uid){
       res.status(REQUESTBAD).send("invalid parameters: no uid");
@@ -1416,7 +1427,7 @@ app.post('/api/add_user', function(req, res){
       res.status(REQUESTBAD).send("invalid parameters: no email");
       return;
   }
-
+  /*
   if(!academic_level){
       res.status(REQUESTBAD).send("invalid parameters: no academic level");
       return;
@@ -1439,7 +1450,7 @@ app.post('/api/add_user', function(req, res){
   if(!description){
       description = "";
   }
-
+  */
   if(!profile_image_url){
       profile_image_url = "";
   }
@@ -1458,6 +1469,7 @@ app.post('/api/add_user', function(req, res){
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/description').set(description);
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/profile_image_url').set(profile_image_url);
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/time_created').set(current_time*1.0);
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/intro_complete').set(false);
 
   databaseref.child('schools/' + school_identifier + '/search_users_array/' + uid).set(first_name + " " + last_name);
 
@@ -2204,6 +2216,36 @@ app.post('/api/update_user_last_logon', function(req, res){
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/last_logon').set(last_logon*1.0);
 
   res.status(REQUESTSUCCESSFUL).send('lats logon updated');
+
+});
+
+app.post('/api/user_intro_complete', function(req, res){
+  var token = req.query.token;
+
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
+
+  incrementTokenCalls(token);
+
+  var uid = req.body['uid'];
+  var school_identifier = req.body['school_identifier'];
+
+  if(!uid){
+      res.status(REQUESTBAD).send("invalid parameters: no uid");
+      return;
+  }
+
+  if(!school_identifier){
+      res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+      return;
+  }
+
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/intro_complete').set(true);
+
+  res.status(REQUESTSUCCESSFUL).send('intro complete updated');
 
 });
 
