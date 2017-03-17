@@ -2387,11 +2387,19 @@ app.get('/api/get_group_basic_info', function(req, res){
 
     databaseref.child('schools/' + school_identifier + '/groups/' + guid).once('value').then(function(snapshot){
             if(snapshot.val()) {
+              
+              var num_members = 0;
+              
+              if (snapshot.val()["members"]) {
+                num_members = Object.keys(snapshot.val()["members"]).length;
+              }
+              
               var basic_info = {
                 name: snapshot.val()["name"],
                 short_name: snapshot.val()["short_name"],
                 color: snapshot.val()["color"],
-                group_id: snapshot.val()["group_id"]
+                group_id: snapshot.val()["group_id"],
+                member_count: num_members
               };
               res.status(REQUESTSUCCESSFUL).send(basic_info);
             }
