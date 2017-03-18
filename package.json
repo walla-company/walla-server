@@ -18,7 +18,7 @@
     "request": "*",
     "token-generator": "*",
     "underscore": "^1.8.3",
-    "momemt": "*"
+    "moment": "*"
   },
   "keywords": [],
   "author": "",
