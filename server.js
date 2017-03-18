@@ -3182,6 +3182,7 @@ app.post('/api/update_notification_read', function(req, res){
 
     var school_identifier = req.body.school_identifier;
     var notification_id = req.body.notification_id;
+    var uid = req.body.uid;
     var read = req.body.read;
 
     if(!school_identifier){
@@ -3193,13 +3194,18 @@ app.post('/api/update_notification_read', function(req, res){
         res.status(REQUESTBAD).send("invalid parameters: no notification identifier");
         return;
     }
+  
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
 
     if(read == null){
         res.status(REQUESTBAD).send("invalid parameters: no read");
         return;
     }
 
-    databaseref.child('schools/' + school_identifier + '/notifications/' + notification_id + "/read").set(read);
+    databaseref.child('schools/' + school_identifier + '/notifications/' + uid + '/' + notification_id + "/read").set(read);
 
     res.status(REQUESTSUCCESSFUL).send("read updated");
 
