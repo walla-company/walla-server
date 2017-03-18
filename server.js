@@ -962,8 +962,11 @@ app.get('/api/get_activities', function(req, res){
         return;
     }
     */
-    
-    var timequery = new Date().getTime() / 1000;
+  
+    //var timequery = new Date().getTime() / 1000;
+  
+    var timequery = (moment().utcOffset("-04:00").startOf('day') * 1.0) / 1000;
+  
     /*
     var filter = req.query.filter;
     if(!isNaN(filter)){
@@ -979,7 +982,7 @@ app.get('/api/get_activities', function(req, res){
 
     console.log('timequery: ' + timequery);
 
-    databaseref.child('schools/' + school_identifier + '/activities/').orderByChild('end_time').startAt(timequery)
+    databaseref.child('schools/' + school_identifier + '/activities/').orderByChild('start_time').startAt(timequery)
         .once('value').then(function(snapshot){
             if(snapshot.val()) {
 
@@ -2420,11 +2423,19 @@ app.get('/api/get_group_basic_info', function(req, res){
 
     databaseref.child('schools/' + school_identifier + '/groups/' + guid).once('value').then(function(snapshot){
             if(snapshot.val()) {
+              
+              var num_members = 0;
+              
+              if (snapshot.val()["members"]) {
+                num_members = Object.keys(snapshot.val()["members"]).length;
+              }
+              
               var basic_info = {
                 name: snapshot.val()["name"],
                 short_name: snapshot.val()["short_name"],
                 color: snapshot.val()["color"],
-                group_id: snapshot.val()["group_id"]
+                group_id: snapshot.val()["group_id"],
+                member_count: num_members
               };
               res.status(REQUESTSUCCESSFUL).send(basic_info);
             }
@@ -3234,6 +3245,7 @@ app.post('/api/update_notification_read', function(req, res){
 
     var school_identifier = req.body.school_identifier;
     var notification_id = req.body.notification_id;
+    var uid = req.body.uid;
     var read = req.body.read;
 
     if(!school_identifier){
@@ -3245,13 +3257,18 @@ app.post('/api/update_notification_read', function(req, res){
         res.status(REQUESTBAD).send("invalid parameters: no notification identifier");
         return;
     }
+  
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
 
     if(read == null){
         res.status(REQUESTBAD).send("invalid parameters: no read");
         return;
     }
 
-    databaseref.child('schools/' + school_identifier + '/notifications/' + notification_id + "/read").set(read);
+    databaseref.child('schools/' + school_identifier + '/notifications/' + uid + '/' + notification_id + "/read").set(read);
 
     res.status(REQUESTSUCCESSFUL).send("read updated");
 

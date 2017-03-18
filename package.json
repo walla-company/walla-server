@@ -19,7 +19,8 @@
     "randomcolor": "*",
     "request": "*",
     "token-generator": "*",
-    "underscore": "^1.8.3"
+    "underscore": "^1.8.3",
+    "moment": "*"
   },
   "keywords": [],
   "author": "",
