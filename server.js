@@ -13,6 +13,7 @@ var randomcolor = require('randomcolor');
 //var adminServer = require('./admin-server'); //Admin web manager server
 var request = require('request');
 var _ = require('underscore'); //npm install underscore --save
+var moment = require('moment');
 
 //***************CONSTANTS*************//
 
@@ -930,7 +931,13 @@ app.get('/api/get_activities', function(req, res){
     }
     */
     
-    var timequery = new Date().getTime() / 1000;
+    var start = new Date();
+    start.setHours(0,0,0,0);
+  
+    //var timequery = new Date().getTime() / 1000;
+  
+    var timequery = (moment().utcOffset("-04:00").startOf('day') * 1.0) / 1000;
+  
     /*
     var filter = req.query.filter;
     if(!isNaN(filter)){
@@ -946,7 +953,7 @@ app.get('/api/get_activities', function(req, res){
 
     console.log('timequery: ' + timequery);
 
-    databaseref.child('schools/' + school_identifier + '/activities/').orderByChild('end_time').startAt(timequery)
+    databaseref.child('schools/' + school_identifier + '/activities/').orderByChild('start_time').startAt(timequery)
         .once('value').then(function(snapshot){
             if(snapshot.val()) {
 
