@@ -930,9 +930,6 @@ app.get('/api/get_activities', function(req, res){
         return;
     }
     */
-    
-    var start = new Date();
-    start.setHours(0,0,0,0);
   
     //var timequery = new Date().getTime() / 1000;
   
