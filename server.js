@@ -97,7 +97,7 @@ var apikeytemplate;
 
 // Initialize Firebase
 
-var useLocal = false;
+var useLocal = true;
 
 if (!useLocal) {
     console.log("RUNNING IN PRODUCTION ENV");
@@ -2692,6 +2692,61 @@ app.get('/api/get_search_groups_array', function(req, res){
 
 
 });
+
+
+function filterUsers(users, filter, school_identifier) {
+    return new Promise(resolve => {
+        if (!users || !filter) resolve(users);
+
+        let groupMembersId;
+        return new Promise(resolveGroup => {
+            if (!filter.group) resolveGroup();
+            else {
+                databaseref.child('schools').child(school_identifier).child('groups').child(filter.group).once('value').then(snapshot => {
+                    const group = snapshot.val();
+                    if (group && group.members) {
+                        groupMembersId = Object.keys(group.members);
+                        if (!groupMembersId.length) groupMembersId = null;
+                    }
+                    resolveGroup();
+                });
+            }
+        }).then(() => {
+            const tmpUsers = {};
+            Object.keys(users).forEach(k => {
+                const u = users[k];
+                if (!u.user_id) return;
+
+                if (!Object.keys(filter).some(field => {
+                    let filterValue = filter[field];
+
+                    if (field === 'group') {
+                        return !groupMembersId || !groupMembersId.includes(u.user_id);
+                    }
+
+                    let userValue = u[field];
+                    if (!filterValue) return false;
+                    filterValue = filterValue.toString().toLowerCase();
+                    if (userValue) {
+                        userValue = userValue.toString().toLowerCase();
+                    } else userValue = "";
+                    if (filterValue[0] === '=') {
+                        filterValue = filterValue.substring(1);
+                        if (!filterValue) return false;
+                        return filterValue != userValue;
+                    } else {
+                        return userValue.indexOf(filterValue) === -1;
+                    }
+                })) {
+                    tmpUsers[k] = u;
+                }
+            });
+
+            resolve(tmpUsers);
+        });
+    });
+}
+
 //GET ALL USERS FROM SCHOOL
 app.get('/api/get_users', function(req, res){
   var token = req.query.token;
@@ -2717,33 +2772,64 @@ app.get('/api/get_users', function(req, res){
   
   databaseref.child('schools').child(school_identifier).child('users').once('value').then(function(snapshot){
     let users = snapshot.val();
-    if (users) {
-        if (filter) {
-            var tmpUsers = {};
-            Object.keys(users).forEach(k => {
-                const u = users[k];
+    filterUsers(users, filter, school_identifier).then(users => {
+        res.status(REQUESTSUCCESSFUL).send(users || {});
+    });
+    // if (users) {
+    //     if (filter) {
+    //         let groupMembersId;
 
-                if (!Object.keys(filter).some(field => {
-                    var filterValue = filter[field];
-                    var userValue = u[field];
-                    if (!filterValue) return false;
-                    filterValue = filterValue.toString().toLowerCase();
-                    if (userValue) {
-                        userValue = userValue.toString().toLowerCase();
-                    } else userValue = "";
-                    return filterValue[0] === '='
-                        ? filterValue.substring(1) != userValue
-                        : userValue.indexOf(filterValue) === -1;
-                })) {
-                    tmpUsers[k] = u;
-                }
-            });
-            users = tmpUsers;
-        }
-        res.status(REQUESTSUCCESSFUL).send(users);
-    }
-    else
-        res.status(REQUESTSUCCESSFUL).send({});
+    //         return (
+    //             filter.group ? cb => {
+    //                 databaseref.child('schools').child(school_identifier).child('groups').child(filter.group).once('value').then(snapshot => {
+    //                     const group = snapshot.val();
+    //                     if (group && group.members) {
+    //                         groupMembersId = Object.keys(group.members);
+    //                         if (!groupMembersId.length) groupMembersId = null;
+    //                     }
+    //                     cb();
+    //                 });
+    //             } : cb => cb()
+    //         )(() => {
+    //             const tmpUsers = {};
+    //             Object.keys(users).forEach(k => {
+    //                 const u = users[k];
+    //                 if (!u.user_id) return;
+
+    //                 if (!Object.keys(filter).some(field => {
+    //                     let filterValue = filter[field];
+
+    //                     if (field === 'group') {
+    //                         return !groupMembersId || !groupMembersId.includes(u.user_id);
+    //                     }
+
+    //                     let userValue = u[field];
+    //                     if (!filterValue) return false;
+    //                     filterValue = filterValue.toString().toLowerCase();
+    //                     if (userValue) {
+    //                         userValue = userValue.toString().toLowerCase();
+    //                     } else userValue = "";
+    //                     if (filterValue[0] === '=') {
+    //                         filterValue = filterValue.substring(1);
+    //                         if (!filterValue) return false;
+    //                         return filterValue != userValue;
+    //                     } else {
+    //                         return userValue.indexOf(filterValue) === -1;
+    //                     }
+    //                 })) {
+    //                     tmpUsers[k] = u;
+    //                 }
+
+    //             });
+
+    //             res.status(REQUESTSUCCESSFUL).send(tmpUsers);
+
+    //         });
+    //     }
+    //     res.status(REQUESTSUCCESSFUL).send(users);
+    // }
+    // else
+    //     res.status(REQUESTSUCCESSFUL).send({});
 }).catch(function(error){
     res.status(REQUESTBAD).send(error);
     console.log(error);
@@ -3918,6 +4004,330 @@ function logUserSession(uid, guid, start, end) {
 //     });
 // });
 
+app.get('/api/get_dashboard_data', (req, res) => {
+    // var token = req.query.token;
+
+    // var auth = authenticateToken(token);
+    // if(!auth.admin){
+    //     res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+    //     return;
+    // }
+
+    // incrementTokenCalls(token);
+
+    const school_identifier = req.query['school_identifier'];
+
+    if (!school_identifier) school_identifier = 'duke'; //for tests only
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    const getSchool = databaseref.child('schools').child(school_identifier).once('value');
+    const getAllUsers = databaseref.child('users').once('value');
+    const getSessionsLog = databaseref.child('sessions_log').once('value');    
+    const getSchoolActivities = databaseref.child('schools').child(school_identifier).child('activities').once('value');;
+
+    Promise.all([getSchool, getAllUsers, getSessionsLog, getSchoolActivities]).then(values => {
+        //selected school
+        const selectedSchool = values[0].val();
+        //active groups
+        const schoolGroups = selectedSchool.groups || {};
+        //sessions
+        const sessions_log = values[2].val() ||  {};
+        //school activities
+        const schoolActivities = values[3].val() || {};
+        //count users from selected school
+        const schoolUserCount = Object.keys(selectedSchool.users || {}).length;
+        //total days recording sessions
+        const total_days = Object.keys(sessions_log.sessions_by_day ||  {}).length; //check if we only need sessions by day here
+        //total unique user sessions recorded
+        const total_unique_sessions = Object.keys(sessions_log.sessions_by_day ||  {})
+                            .map(k => Object.keys((sessions_log.sessions_by_day ||  {})[k].sessions).length)
+                            .reduce((prev, cur) => prev + cur, 0);
+
+        let totalPlanningTime = 0;
+        Object.keys(schoolActivities).map(k => schoolActivities[k])
+        .forEach(a => {
+
+            const postedAt = moment(a.timePosted * 1000);
+            const eventAt = moment(a.start_time * 1000);
+
+            totalPlanningTime += eventAt.diff(postedAt, 'seconds');
+        });
+
+        //count of users from all schools
+        const unique_users = values[1].numChildren();
+        //Percentage of users who belongs to the selected school
+        const percent_school_population = (schoolUserCount / unique_users * 100).toFixed(2);
+        //counting daily active unique users
+        const daily_active_users = Math.round(total_unique_sessions / total_days);
+        //total number of sessions
+        const total_number_sessions = sessions_log.total_sessions;
+        //avg duration of sessions
+        const avg_session_duration = Math.round(sessions_log.total_seconds / total_number_sessions);
+        
+        //count groups with at least one member and count members from groups of selected school
+        let active_groups = 0, schoolMemberCount = 0;
+        Object.keys(schoolGroups).forEach(k => {
+            const memberCount = Object.keys(schoolGroups[k].members || {}).length;
+            if (memberCount) {
+                active_groups++;
+                schoolMemberCount += memberCount;
+            }
+        });
+        //count avg group size
+        const avg_group_size = Math.round(active_groups === 0 ? 0 : schoolMemberCount / active_groups);
+        //find groups hosting events
+        const groups_hosting = [];
+        Object.keys(schoolActivities ||  {}).map(k => schoolActivities[k]).forEach(a => {
+            if (a.host_group) {
+                groups_hosting.push(a.host_group);
+            }
+        });
+        //avg hosted events by groups
+        const avg_hosted_events_by_group = Math.round(groups_hosting.length / (_.unique(groups_hosting).length || 1));
+
+        // events avg planning time
+        const events_avg_planning_time = Math.round(totalPlanningTime / Object.keys(schoolActivities).length);
+
+        res.status(REQUESTSUCCESSFUL).send({
+            unique_users,
+            percent_school_population,
+            daily_active_users,
+            total_number_sessions,
+            avg_session_duration,
+            active_groups,
+            avg_group_size,
+            avg_hosted_events_by_group,
+            events_avg_planning_time
+        });
+
+    });
+});
+
+
+app.get('/api/get_users_analytics', function(req, res) {
+    // var token = req.query.token;
+
+    // var auth = authenticateToken(token);
+    // if(!auth.admin){
+    //     res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+    //     return;
+    // }
+
+    // incrementTokenCalls(token);
+
+    var filter = req.query['filter'], school_identifier = req.query['school_identifier'],
+        selected_date = moment(req.query['date']).startOf('day').toDate(), guid;
+
+    if (filter) {
+        filter = JSON.parse(filter);
+        guid = filter.group;
+    }
+
+    if (!school_identifier) school_identifier = 'duke'; //for tests only
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    const getSchoolUsers = databaseref.child('schools').child(school_identifier).child('users').once('value');
+    const getSessionsLog = databaseref.child('sessions_log').once('value');  
+
+
+    Promise.all([getSchoolUsers, getSessionsLog]).then(values => {
+        let schoolUsers = values[0].val();
+        const sessions_log = values[1].val() ||  {};
+        
+        filterUsers(schoolUsers, filter, school_identifier).then(users => {
+            schoolUsers = users || {};
+
+            let academic_levels = [];
+            let graduation_years = [];
+            let majors = [];
+
+            Object.keys(schoolUsers).map(k => schoolUsers[k]).forEach(u => {
+                if (['grad', 'undergrad'].includes(u.academic_level))
+                    academic_levels.push(u.academic_level);
+                
+                if (u.graduation_year)
+                    graduation_years.push(u.graduation_year);
+
+                if (u.major)
+                    majors.push(u.major);
+            });
+        
+            //grad/undergrad chart
+            const countGradUndergrad = _.countBy(academic_levels);
+            const grad_undergrad_chart = [countGradUndergrad['grad'], countGradUndergrad['undergrad']];
+
+            //grad_year chart
+            const countGradYear = _.countBy(graduation_years);
+            const years = Object.keys(countGradYear).sort();
+            const grad_year_chart = {
+                years,
+                data: years.map(y => countGradYear[y])
+            };
+
+            //fields of study
+            const majorMaps = {
+                'cs': 'computer science',
+                'compsci': 'computer science',
+                'econ': 'economics',
+                'gh': 'global health',
+                'neuro': 'neuroscience',
+                'public policy studies': 'public policy',
+                'statz': 'statistics',
+                'tbd': 'undecided'
+            };
+            majors = _.flatten(majors.map(m => m.toLowerCase().trim().split(/(?:[+,\/]|and)+/).map(s => s.trim())));
+            majors = majors.map(m => (majorMaps[m] || m).split(' ').map(w => w.split('').map((l, i) => i === 0 ? l.toUpperCase() : l).join('')).join(' '));
+            const countMajors = _.countBy(majors);
+            const fields_of_study_chart = _.chain(countMajors).map((count, major) => Object({
+                word: major,
+                count: count
+            })).sortBy('count').value().map((obj, i) => Object({
+                word: obj.word,
+                count: i + 1
+            }));
+        
+
+            //sessions over time
+
+            const hourFormat = 'YYYY-MM-DD-HH';
+            const dayFormat = 'YYYY-MM-DD';
+            const monthFormat = 'YYYY-MM';
+
+            const dayLabel = 'h:00 A';
+            const weekLabel = 'MMM. D, YYYY [-] dddd';
+            const monthLabel = 'MMM. D, YYYY';
+            const yearLabel = 'MMM. YYYY';
+
+            // by day
+            
+            const selected_day_hours = Object.keys(sessions_log.sessions_by_hour ||  {}).sort()
+            // filter 'by hours' sessions using the selected day
+            .filter(k => moment(k, hourFormat).startOf('day').diff(selected_date, 'days') === 0);
+
+            const sessions_by_day = [];
+            for (let h = 0; h <= 23; h++) {
+                const label = moment(selected_date).hours(h).format(dayLabel);
+                const currentHourThisDay = selected_day_hours.filter(k => moment(k, hourFormat).hour() === h)[0];
+                if (!currentHourThisDay) {
+                    sessions_by_day.push({
+                        label,
+                        count: 0
+                    });
+                } else {
+                    sessions_by_day.push({
+                        label,
+                        count: Object.keys((sessions_log.sessions_by_hour ||  {})[currentHourThisDay][guid ? 'groups' : 'sessions'] || {}).length
+                    });
+                }
+            }
+
+            // by week
+
+            const startOfWeek = moment(selected_date).startOf('week');
+            const endOfWeek = moment(selected_date).endOf('week');
+
+            const selected_week_days = Object.keys(sessions_log.sessions_by_day ||  {}).sort()
+            // filter 'by days' sessions using the selected day
+            .filter(k => moment(k, dayFormat).isBetween(startOfWeek, endOfWeek, null, '[]'));
+
+            const sessions_by_week = [];
+            for (let d = 0; d <= 6; d++) {
+                const label = moment(startOfWeek).add(d, 'days').format(weekLabel);
+                const currentDayThisWeek = selected_week_days.filter(k => moment(k, dayFormat).weekday() === d)[0];
+                if (!currentDayThisWeek) {
+                    sessions_by_week.push({
+                        label,
+                        count: 0
+                    });
+                } else {
+                    sessions_by_week.push({
+                        label,
+                        count: Object.keys((sessions_log.sessions_by_day ||  {})[currentDayThisWeek][guid ? 'groups' : 'sessions'] || {}).length
+                    });
+                }
+            }
+
+            // by month
+
+            const startOfMonth = moment(selected_date).startOf('month');
+            const endOfMonth = moment(selected_date).endOf('month');
+            const numOfDaysInMonth = moment(selected_date).daysInMonth();
+
+            const selected_month_days = Object.keys(sessions_log.sessions_by_day ||  {}).sort()
+            // filter 'by days' sessions using the selected day
+            .filter(k => moment(k, dayFormat).isBetween(startOfMonth, endOfMonth, null, '[]'));
+
+
+            const sessions_by_month = [];
+            for (let d = 1; d <= numOfDaysInMonth; d++) {
+                const label = moment(startOfMonth).add(d - 1, 'days').format(monthLabel);
+                const currentDayThisMonth = selected_month_days.filter(k => moment(k, dayFormat).date() === d)[0];
+                
+                if (!currentDayThisMonth) {
+                    sessions_by_month.push({
+                        label,
+                        count: 0
+                    });
+                } else {
+                    sessions_by_month.push({
+                        label,
+                        count: Object.keys((sessions_log.sessions_by_day ||  {})[currentDayThisMonth][guid ? 'groups' : 'sessions'] || {}).length
+                    });
+                }
+            }
+
+
+            // by year
+
+            const startOfYear = moment(selected_date).startOf('year');
+            const endOfYear = moment(selected_date).endOf('year');
+
+            const selected_year_months = Object.keys(sessions_log.sessions_by_month ||  {}).sort()
+            // filter 'by days' sessions using the selected day
+            .filter(k => moment(k, monthFormat).isBetween(startOfYear, endOfYear, null, '[]'));
+
+            const sessions_by_year = [];
+            for (let m = 0; m <= 11; m++) {
+                const label = moment(startOfYear).add(m, 'months').format(yearLabel);
+                const currentMonthThisYear = selected_year_months.filter(k => moment(k, monthFormat).month() === m)[0];
+                if (!currentMonthThisYear) {
+                    sessions_by_year.push({
+                        label,
+                        count: 0
+                    });
+                } else {
+                    sessions_by_year.push({
+                        label,
+                        count: Object.keys((sessions_log.sessions_by_month ||  {})[currentMonthThisYear][guid ? 'groups' : 'sessions'] || {}).length
+                    });
+                }
+            }
+
+            res.status(REQUESTSUCCESSFUL).send({
+                // charts
+                grad_undergrad_chart,
+                grad_year_chart,
+                fields_of_study_chart,
+                // session over time charts
+                sessions_by_day,
+                sessions_by_week,
+                sessions_by_month,
+                sessions_by_year
+            });
+
+        });
+
+    });
+});
+
 app.get('/api/get_dashboard_events_data', function(req, res) {
     // var token = req.query.token;
 
@@ -4304,8 +4714,7 @@ app.get('/api/get_dashboard_users_data', function(req, res) {
         });
 
         //avg hosted events by groups
-        const avg_hosted_events_by_group = Math.round(groups_hosting.length / _.unique(groups_hosting).length);
-
+        const avg_hosted_events_by_group = Math.round(groups_hosting.length / (_.unique(groups_hosting).length || 1));
         //grad/undergrad chart
         var countGradUndergrad = _.countBy(academic_levels);
         var grad_undergrad_chart = [countGradUndergrad['grad'], countGradUndergrad['undergrad']];
@@ -4500,6 +4909,10 @@ app.get('/api/get_dashboard_users_data', function(req, res) {
             daily_active_users,
             total_number_sessions,
             avg_session_duration,
+            active_groups,
+            avg_group_size,
+            avg_hosted_events_by_group,
+
             grad_undergrad_chart,
             grad_year_chart,
             self_reported_interests_chart,
@@ -4507,10 +4920,7 @@ app.get('/api/get_dashboard_users_data', function(req, res) {
             sessions_by_day,
             sessions_by_week,
             sessions_by_month,
-            sessions_by_year,
-            active_groups,
-            avg_group_size,
-            avg_hosted_events_by_group
+            sessions_by_year
         });
     });
 });
