@@ -97,7 +97,7 @@ var apikeytemplate;
 
 // Initialize Firebase
 
-var useLocal = false;
+var useLocal = true;
 
 if (!useLocal) {
     console.log("RUNNING IN PRODUCTION ENV");
@@ -4206,6 +4206,8 @@ app.get('/api/get_users_analytics', function(req, res) {
             const monthLabel = 'MMM. D, YYYY';
             const yearLabel = 'MMM. YYYY';
 
+            const now = moment();
+
             // by day
             
             const selected_day_hours = Object.keys(sessions_log.sessions_by_hour ||  {}).sort()
@@ -4214,7 +4216,9 @@ app.get('/api/get_users_analytics', function(req, res) {
 
             const sessions_by_day = [];
             for (let h = 0; h <= 23; h++) {
-                const label = moment(selected_date).hours(h).format(dayLabel);
+                const itemDate = moment(selected_date).hours(h);
+                if (moment(itemDate).endOf('hour').diff(now.endOf('hour')) > 0) continue;
+                const label = itemDate.format(dayLabel);
                 const currentHourThisDay = selected_day_hours.filter(k => moment(k, hourFormat).hour() === h)[0];
                 if (!currentHourThisDay) {
                     sessions_by_day.push({
@@ -4240,7 +4244,9 @@ app.get('/api/get_users_analytics', function(req, res) {
 
             const sessions_by_week = [];
             for (let d = 0; d <= 6; d++) {
-                const label = moment(startOfWeek).add(d, 'days').format(weekLabel);
+                const itemDate = moment(startOfWeek).add(d, 'days');
+                if (moment(itemDate).endOf('day').diff(now.endOf('day')) > 0) continue;
+                const label = itemDate.format(weekLabel);
                 const currentDayThisWeek = selected_week_days.filter(k => moment(k, dayFormat).weekday() === d)[0];
                 if (!currentDayThisWeek) {
                     sessions_by_week.push({
@@ -4268,7 +4274,9 @@ app.get('/api/get_users_analytics', function(req, res) {
 
             const sessions_by_month = [];
             for (let d = 1; d <= numOfDaysInMonth; d++) {
-                const label = moment(startOfMonth).add(d - 1, 'days').format(monthLabel);
+                const itemDate = moment(startOfMonth).add(d - 1, 'days');
+                if (moment(itemDate).endOf('day').diff(now.endOf('day')) > 0) continue;
+                const label = itemDate.format(monthLabel);
                 const currentDayThisMonth = selected_month_days.filter(k => moment(k, dayFormat).date() === d)[0];
                 
                 if (!currentDayThisMonth) {
@@ -4296,7 +4304,9 @@ app.get('/api/get_users_analytics', function(req, res) {
 
             const sessions_by_year = [];
             for (let m = 0; m <= 11; m++) {
-                const label = moment(startOfYear).add(m, 'months').format(yearLabel);
+                const itemDate = moment(startOfYear).add(m, 'months');
+                if (moment(itemDate).endOf('month').diff(now.endOf('month')) > 0) continue;
+                const label = itemDate.format(yearLabel);
                 const currentMonthThisYear = selected_year_months.filter(k => moment(k, monthFormat).month() === m)[0];
                 if (!currentMonthThisYear) {
                     sessions_by_year.push({
