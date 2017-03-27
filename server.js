@@ -16,7 +16,7 @@ var _ = require('underscore'); //npm install underscore --save
 var moment = require('moment'); //npm install moment --save
 var moment_tz = require('moment-timezone'); //npm install moment --save
 var Promise = require('bluebird'); //npm install bluebird --save
-console.log(moment_tz.tz.guess());
+
 //***************CONSTANTS*************//
 
 const SECONDSINHOUR = 3600; //used to filter activities with last X hours
@@ -4121,7 +4121,12 @@ app.get('/api/get_users_analytics', function(req, res) {
     // incrementTokenCalls(token);
 
     var filter = req.query['filter'], school_identifier = req.query['school_identifier'],
-        selected_date = moment(req.query['date']).startOf('day').toDate(), guid;
+        selected_date = moment(req.query['date']).startOf('day').toDate(), guid,
+        timezone = req.query.timezone;
+
+    if (timezone) {
+        moment_tz.tz.setDefault(timezone);
+    }
 
     if (filter) {
         filter = JSON.parse(filter);
@@ -4322,6 +4327,7 @@ app.get('/api/get_users_analytics', function(req, res) {
                 }
             }
 
+            moment_tz.tz.setDefault('UTC');
             res.status(REQUESTSUCCESSFUL).send({
                 // charts
                 grad_undergrad_chart,
