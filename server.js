@@ -14,8 +14,9 @@ var randomcolor = require('randomcolor');
 var request = require('request');
 var _ = require('underscore'); //npm install underscore --save
 var moment = require('moment'); //npm install moment --save
+var moment_tz = require('moment-timezone'); //npm install moment --save
 var Promise = require('bluebird'); //npm install bluebird --save
-
+console.log(moment_tz.tz.guess());
 //***************CONSTANTS*************//
 
 const SECONDSINHOUR = 3600; //used to filter activities with last X hours
