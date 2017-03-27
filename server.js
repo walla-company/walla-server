@@ -97,7 +97,7 @@ var apikeytemplate;
 
 // Initialize Firebase
 
-var useLocal = false;
+var useLocal = true;
 
 if (!useLocal) {
     console.log("RUNNING IN PRODUCTION ENV");
