@@ -4208,8 +4208,11 @@ app.get('/api/get_users_analytics', function(req, res) {
             const monthLabel = 'MMM. D, YYYY';
             const yearLabel = 'MMM. YYYY';
 
-            const now = moment.tz(timezone);
-            console.log(now, now.format());
+            let now = moment();
+            const nowTimezone = now.clone();
+            nowTimezone.tz(timezone);
+            nowTimezone.add(now.utcOffset() - nowTimezone.utcOffset(), 'minutes');
+            now = nowTimezone;
 
             // by day
             
