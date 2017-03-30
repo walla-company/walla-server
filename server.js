@@ -4121,12 +4121,7 @@ app.get('/api/get_users_analytics', function(req, res) {
     // incrementTokenCalls(token);
 
     var filter = req.query['filter'], school_identifier = req.query['school_identifier'],
-        selected_date = moment(req.query['date']).startOf('day').toDate(), guid,
-        timezone = req.query.timezone;
-
-    if (timezone) {
-        moment_tz.tz.setDefault(timezone);
-    }
+        selected_date = moment(req.query['date']).startOf('day').toDate(), guid;
 
     if (filter) {
         filter = JSON.parse(filter);
@@ -4327,7 +4322,6 @@ app.get('/api/get_users_analytics', function(req, res) {
                 }
             }
 
-            moment_tz.tz.setDefault('UTC');
             res.status(REQUESTSUCCESSFUL).send({
                 // charts
                 grad_undergrad_chart,
