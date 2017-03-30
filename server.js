@@ -4218,6 +4218,7 @@ app.get('/api/get_users_analytics', function(req, res) {
             const sessions_by_day = [];
             for (let h = 0; h <= 23; h++) {
                 const itemDate = moment(selected_date).hours(h);
+                console.log(itemDate.format(dayLabel), now.endOf('hour').format(), itemDate.endOf('hour').format(), moment(itemDate).endOf('hour').diff(now.endOf('hour')));
                 if (moment(itemDate).endOf('hour').diff(now.endOf('hour')) > 0) continue;
                 const label = itemDate.format(dayLabel);
                 const currentHourThisDay = selected_day_hours.filter(k => moment(k, hourFormat).hour() === h)[0];
