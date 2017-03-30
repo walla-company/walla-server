@@ -4121,7 +4121,8 @@ app.get('/api/get_users_analytics', function(req, res) {
     // incrementTokenCalls(token);
 
     var filter = req.query['filter'], school_identifier = req.query['school_identifier'],
-        selected_date = moment(req.query['date']).startOf('day').toDate(), guid;
+        selected_date = moment(req.query['date']).startOf('day').toDate(), guid,
+        timezone = req.query['timezone'];
 
     if (filter) {
         filter = JSON.parse(filter);
@@ -4207,7 +4208,8 @@ app.get('/api/get_users_analytics', function(req, res) {
             const monthLabel = 'MMM. D, YYYY';
             const yearLabel = 'MMM. YYYY';
 
-            const now = moment();
+            const now = moment.tz(timezone);
+            console.log(now, now.format());
 
             // by day
             
