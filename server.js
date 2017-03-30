@@ -4211,7 +4211,7 @@ app.get('/api/get_users_analytics', function(req, res) {
             let now = moment();
             const nowTimezone = now.clone();
             nowTimezone.tz(timezone);
-            nowTimezone.add(now.utcOffset() - nowTimezone.utcOffset(), 'minutes');
+            nowTimezone.add(nowTimezone.utcOffset() - now.utcOffset(), 'minutes');
             now = nowTimezone;
 
             // by day
