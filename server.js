@@ -951,6 +951,8 @@ app.get('/api/get_activities', function(req, res){
 
     var school_identifier = req.query.school_identifier;
     var uid = req.query.uid;
+    var filter = req.query.filter;
+    if (filter) filter = JSON.parse(filter);
 
     if(!school_identifier){
         res.status(REQUESTBAD).send("invalid parameters: no school identifier");
@@ -1006,11 +1008,11 @@ app.get('/api/get_activities', function(req, res){
                         }
                     });
 
-                    sortAndSendActivities(activities, res);
+                    sortAndSendActivities(activities, filter, res);
                     
                 }
                 else {
-                    userCanSeeFeedEvent(uid, school_identifier, res, activities, snapshot.val(), current_index, keys);
+                    userCanSeeFeedEvent(uid, school_identifier, res, activities, snapshot.val(), current_index, keys, filter);
                 }
               }
             else {
@@ -1121,12 +1123,14 @@ app.post('/api/invite_group', function(req, res){
 
 });
 
-function sortAndSendActivities(activities, res) {
-  console.log('activities: ' + activities);
+function sortAndSendActivities(activities, filter, res) {
+    activities = filterActivities(activities, filter);
 
-  activities.sort(compareActivities);
+    console.log('activities: ' + activities);
 
-  res.status(REQUESTSUCCESSFUL).send(activities);
+    activities.sort(compareActivities);
+
+    res.status(REQUESTSUCCESSFUL).send(activities);
 }
 
 function compareActivities(a1, a2) {
@@ -1227,13 +1231,13 @@ function userCanSeeEvent(uid, auid, school_identifier, res, activity) {
     });
 }
 
-function userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys) {
+function userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys, filter) {
 
     var key = keys[current_index];
     
     if (!key || (current_index == all_activities.length)) {
 
-        sortAndSendActivities(activities, res);
+        sortAndSendActivities(activities, filter, res);
         
         return;
     }
@@ -1258,7 +1262,7 @@ function userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activi
         activities.push(current_activity);
       }
       
-      userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
+      userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys, filter);
             
       return;
     }
@@ -1270,7 +1274,7 @@ function userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activi
         activities.push(current_activity);
       }
       
-      userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
+      userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys, filter);
             
       return;
     }
@@ -1284,7 +1288,7 @@ function userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activi
           activities.push(current_activity);
         }
         
-        userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
+        userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys, filter);
                 
         return;
       }
@@ -1302,20 +1306,20 @@ function userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activi
                           activities.push(current_activity);
                         }
                       
-                        userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
+                        userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys, filter);
                         
                         return;
                     }
                 }
                 
                 console.log("Event private: user cannot see");
-                userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
+                userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys, filter);
             }
         }).catch(function(error){
             res.status(REQUESTBAD).send(error);
             console.log(error);
             console.log("Event private: user cannot see");
-            userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
+            userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys, filter);
     });
 }
 
@@ -2694,6 +2698,36 @@ app.get('/api/get_search_groups_array', function(req, res){
 
 });
 
+function filterActivities(activities, filter) {
+    return activities.filter(actv => {
+        if (!actv.activity_id) return false;
+
+        return !Object.keys(filter).some(field => {
+            let filterValue = filter[field];
+
+            // if (field === 'group') {
+            //     return !groupMembersId || !groupMembersId.includes(u.user_id);
+            // } else if (field === 'flagged') {
+                
+            // }
+
+            let actvValue = actv[field];
+            if (!filterValue) return false;
+            filterValue = filterValue.toString().toLowerCase();
+            if (actvValue) {
+                actvValue = actvValue.toString().toLowerCase();
+            } else actvValue = "";
+            if (filterValue[0] === '=') {
+                filterValue = filterValue.substring(1);
+                if (!filterValue) return false;
+                return filterValue != actvValue;
+            } else {
+                return actvValue.indexOf(filterValue) === -1;
+            }
+        });
+    });
+}
+
 
 function filterUsers(users, filter, school_identifier) {
     return new Promise(resolve => {
@@ -2723,6 +2757,8 @@ function filterUsers(users, filter, school_identifier) {
 
                     if (field === 'group') {
                         return !groupMembersId || !groupMembersId.includes(u.user_id);
+                    } else if (field === 'flagged') {
+                        
                     }
 
                     let userValue = u[field];
@@ -4108,6 +4144,18 @@ app.get('/api/get_dashboard_data', (req, res) => {
     });
 });
 
+        // res.status(REQUESTSUCCESSFUL).send({
+        //     free_food_events_chart,
+        //     events_posting_over_time: getChartData(events_posting_over_time),
+        //     events_time_over_time: getChartData(events_time_over_time),
+        //     events_attendance_over_time: getChartData(events_attendance_over_time),
+        //     events_avg_planning_time,
+        //     events_by_audience: {
+        //         grad_undergrad_chart,
+        //         grad_year_chart,
+        //         fields_of_study_chart
+        //     }
+        // });
 
 app.get('/api/get_users_analytics', function(req, res) {
     // var token = req.query.token;
@@ -4137,12 +4185,15 @@ app.get('/api/get_users_analytics', function(req, res) {
     }
 
     const getSchoolUsers = databaseref.child('schools').child(school_identifier).child('users').once('value');
-    const getSessionsLog = databaseref.child('sessions_log').once('value');  
+    const getSessionsLog = databaseref.child('sessions_log').once('value');
 
 
     Promise.all([getSchoolUsers, getSessionsLog]).then(values => {
         let schoolUsers = values[0].val();
         const sessions_log = values[1].val() ||  {};
+        // fs.writeFileSync('sessions.json', JSON.stringify(sessions_log), {
+        //     encoding: 'utf-8'
+        // });
         
         filterUsers(schoolUsers, filter, school_identifier).then(users => {
             schoolUsers = users || {};
@@ -4223,7 +4274,7 @@ app.get('/api/get_users_analytics', function(req, res) {
             const sessions_by_day = [];
             for (let h = 0; h <= 23; h++) {
                 const itemDate = moment(selected_date).hours(h);
-                console.log(itemDate.format(dayLabel), now.endOf('hour').format(), itemDate.endOf('hour').format(), moment(itemDate).endOf('hour').diff(now.endOf('hour')));
+                // console.log(itemDate.format(dayLabel), now.endOf('hour').format(), itemDate.endOf('hour').format(), moment(itemDate).endOf('hour').diff(now.endOf('hour')));
                 if (moment(itemDate).endOf('hour').diff(now.endOf('hour')) > 0) continue;
                 const label = itemDate.format(dayLabel);
                 const currentHourThisDay = selected_day_hours.filter(k => moment(k, hourFormat).hour() === h)[0];
@@ -4343,6 +4394,31 @@ app.get('/api/get_users_analytics', function(req, res) {
         });
 
     });
+});
+
+function changeUserSuspension(school_identifier, uid, suspended) {
+    return databaseref.child('schools').child(school_identifier).child('users').child(uid).child('suspended').set(suspended);
+}
+
+app.post('/api/change_user_suspension', (req, res) => {
+    // var token = req.query.token;
+
+    // var auth = authenticateToken(token);
+    // if(!auth.admin){
+    //     res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+    //     return;
+    // }
+
+    // incrementTokenCalls(token);
+
+    const school_identifier = req.body['school_identifier'];
+    const uid = req.body['uid'];
+    const suspended = req.body['suspended'];
+    console.log(school_identifier, uid, suspended);
+
+    changeUserSuspension(school_identifier, uid, suspended)
+        .then(() => res.sendStatus(REQUESTSUCCESSFUL));
+    
 });
 
 app.get('/api/get_dashboard_events_data', function(req, res) {
