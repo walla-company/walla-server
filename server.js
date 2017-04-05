@@ -938,6 +938,39 @@ app.post('/api/delete_activity', function(req, res){
     });
 });
 
+app.get('/api/get_all_activities', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
+    var filter = req.query.filter;
+    if (filter) filter = JSON.parse(filter);
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+    
+    databaseref.child('schools/' + school_identifier + '/activities/').once('value').then(snapshot => {
+        let activities = snapshot.val();
+        if (!activities) {
+            return res.status(REQUESTSUCCESSFUL).send({});
+        }
+
+        activities = Object.keys(activities).map(k => activities[k]);
+        activities = filterActivities(activities, filter);
+        res.status(REQUESTSUCCESSFUL).send(activities);
+    });
+
+});
+
 app.get('/api/get_activities', function(req, res){
     var token = req.query.token;
 
@@ -984,9 +1017,9 @@ app.get('/api/get_activities', function(req, res){
     incrementTokenCalls(token);
 
     console.log('timequery: ' + timequery);
-
     databaseref.child('schools/' + school_identifier + '/activities/').orderByChild('start_time').startAt(timequery)
         .once('value').then(function(snapshot){
+            console.log('snapshot', snapshot.val());
             if(snapshot.val()) {
 
                 var activities = [];
@@ -1007,12 +1040,11 @@ app.get('/api/get_activities', function(req, res){
                             activities.push(snapshot.val()[key]);
                         }
                     });
-
-                    sortAndSendActivities(activities, filter, res);
+                    sortAndSendActivities(activities, res);
                     
                 }
                 else {
-                    userCanSeeFeedEvent(uid, school_identifier, res, activities, snapshot.val(), current_index, keys, filter);
+                    userCanSeeFeedEvent(uid, school_identifier, res, activities, snapshot.val(), current_index, keys);
                 }
               }
             else {
@@ -1123,9 +1155,7 @@ app.post('/api/invite_group', function(req, res){
 
 });
 
-function sortAndSendActivities(activities, filter, res) {
-    activities = filterActivities(activities, filter);
-
+function sortAndSendActivities(activities, res) {
     console.log('activities: ' + activities);
 
     activities.sort(compareActivities);
@@ -1231,13 +1261,13 @@ function userCanSeeEvent(uid, auid, school_identifier, res, activity) {
     });
 }
 
-function userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys, filter) {
+function userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys) {
 
     var key = keys[current_index];
     
     if (!key || (current_index == all_activities.length)) {
 
-        sortAndSendActivities(activities, filter, res);
+        sortAndSendActivities(activities, res);
         
         return;
     }
@@ -1262,7 +1292,7 @@ function userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activi
         activities.push(current_activity);
       }
       
-      userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys, filter);
+      userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
             
       return;
     }
@@ -1274,7 +1304,7 @@ function userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activi
         activities.push(current_activity);
       }
       
-      userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys, filter);
+      userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
             
       return;
     }
@@ -1288,7 +1318,7 @@ function userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activi
           activities.push(current_activity);
         }
         
-        userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys, filter);
+        userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
                 
         return;
       }
@@ -1306,20 +1336,20 @@ function userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activi
                           activities.push(current_activity);
                         }
                       
-                        userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys, filter);
+                        userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
                         
                         return;
                     }
                 }
                 
                 console.log("Event private: user cannot see");
-                userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys, filter);
+                userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
             }
         }).catch(function(error){
             res.status(REQUESTBAD).send(error);
             console.log(error);
             console.log("Event private: user cannot see");
-            userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys, filter);
+            userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys);
     });
 }
 
@@ -2699,6 +2729,7 @@ app.get('/api/get_search_groups_array', function(req, res){
 });
 
 function filterActivities(activities, filter) {
+    if (!activities || !filter) return activities;
     return activities.filter(actv => {
         if (!actv.activity_id) return false;
 
