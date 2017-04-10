@@ -621,6 +621,21 @@ app.post('/api/add_activity', function(req, res){
     });
     */
     var reply = {};
+  
+    var fake_going_uids = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
+    var fake_interested_uids = ['j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r'];
+    
+    var fake_going = getRandomInt(2, 5);
+    var fake_interested = getRandomInt(2, 5);
+  
+    for (var i=0; i<= fake_going; i++) {
+      reply[fake_going_uids[i]] = 'going';
+    }
+  
+    for (var i=0; i<= fake_interested; i++) {
+      reply[fake_interested_uids[i]] = 'interested';
+    }
+  
     reply[host] = "going";
 
     var activity = {
