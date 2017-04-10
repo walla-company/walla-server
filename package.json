@@ -7,20 +7,18 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "bluebird": "^3.4.7",
     "body-parser": "*",
     "express": "*",
     "express-jwt-session": "^1.0.1",
     "firebase": "*",
     "firebase-admin": "*",
     "fs": "*",
-    "moment": "*",
-    "moment-timezone": "^0.5.11",
     "nodemailer": "*",
     "randomcolor": "*",
     "request": "*",
     "token-generator": "*",
-    "underscore": "^1.8.3"
+    "underscore": "^1.8.3",
+    "moment": "*"
   },
   "keywords": [],
   "author": "",
