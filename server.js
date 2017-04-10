@@ -620,8 +620,22 @@ app.post('/api/add_activity', function(req, res){
       invited_groups_dic[guid] = current_time;
     });
     */
+  
+    var fake_going_uids = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
+    var fake_interested_uids = ['j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r'];
+    
     var reply = {};
-    reply[host] = "going";
+    
+    var fake_going = getRandomInt(2, 5);
+    var fake_interested = getRandomInt(2, 5);
+  
+    for (var i=0; i<= fake_going; i++) {
+      reply[fake_going_uids[i]] = 'going';
+    }
+  
+    for (var i=0; i<= fake_interested; i++) {
+      reply[fake_interested_uids[i]] = 'interested';
+    }
 
     var activity = {
       title: title,
@@ -675,6 +689,12 @@ app.post('/api/add_activity', function(req, res){
     
     res.status(REQUESTSUCCESSFUL).send('activity posted: ' + activity['location']['lat']);
 });
+
+function getRandomInt(min, max) {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min)) + min;
+}
 
 app.post('/api/interested', function(req, res){
     var token = req.query.token;
