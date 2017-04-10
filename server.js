@@ -13,7 +13,9 @@ var randomcolor = require('randomcolor');
 //var adminServer = require('./admin-server'); //Admin web manager server
 var request = require('request');
 var _ = require('underscore'); //npm install underscore --save
-var moment = require('moment');
+var moment = require('moment'); //npm install moment --save
+var moment_tz = require('moment-timezone'); //npm install moment --save
+var Promise = require('bluebird'); //npm install bluebird --save
 
 //***************CONSTANTS*************//
 
@@ -96,27 +98,31 @@ var apikeytemplate;
 
 // Initialize Firebase
 
-var useLocal = false;
+var useLocal = true;
+
+if (!useLocal) {
+    console.log("RUNNING IN PRODUCTION ENV");
+}
 
 // var config = ;
 var config = useLocal ? {
-                            apiKey: "AIzaSyBuYG5jxqySNrrLdJSU0hAX2S3GAs-zrUo",
-                            authDomain: "walla-server-test.firebaseapp.com",
-                            databaseURL: "https://walla-server-test.firebaseio.com",
-                            storageBucket: "walla-server-test.appspot.com",
-                            messagingSenderId: "40193027451"
-                        } : {
-                            apiKey: "AIzaSyDly8Ewgiyhb14hHbHiSnLcu6zUOvEbuF0",
-                            authDomain: "walla-launch.firebaseapp.com",
-                            databaseURL: "https://walla-launch.firebaseio.com",
-                            storageBucket: "walla-launch.appspot.com",
-                            messagingSenderId: "261500518113"
-                        };
+    apiKey: "AIzaSyBuYG5jxqySNrrLdJSU0hAX2S3GAs-zrUo",
+    authDomain: "walla-server-test.firebaseapp.com",
+    databaseURL: "https://walla-server-test.firebaseio.com",
+    storageBucket: "walla-server-test.appspot.com",
+    messagingSenderId: "40193027451"
+} : {
+    apiKey: "AIzaSyDly8Ewgiyhb14hHbHiSnLcu6zUOvEbuF0",
+    authDomain: "walla-launch.firebaseapp.com",
+    databaseURL: "https://walla-launch.firebaseio.com",
+    storageBucket: "walla-launch.appspot.com",
+    messagingSenderId: "261500518113"
+};
 
 
 // var defaultApp = admin.initializeApp();
 var defaultApp = admin.initializeApp(useLocal ? {
-                                                    credential: admin.credential.cert("admin/serviceAccountKey.json"),
+                                                    credential: admin.credential.cert("admin/walla-server-test-key.json"),
                                                     databaseURL: "https://walla-server-test.firebaseio.com"
                                                 } : {
                                                     credential: admin.credential.cert("admin/serviceAccountKey.json"),
@@ -149,7 +155,33 @@ function authenticateToken(token){
 
 //listener for allowed domains
 const ad = databaseref.child('app_settings/allowed_domains');
-ad.on('value', snapshot => domains = snapshot.val());
+ad.on('value', snapshot => {
+    domains = snapshot.val();
+
+    for (let sid in domains) {
+        var updateRootUsers = function(type) {
+            return function(snapshot) {
+                // console.log(type);
+                var user = snapshot.val();
+                if (!user.user_id) return;
+                var obj = {};
+                obj[user.user_id] = {
+                    user_id: user.user_id,
+                    school_identifier: sid,
+                    name: user.first_name + ' ' + user.last_name
+                };
+                // console.log(1, obj);
+                databaseref.child('users').update(obj);
+            }
+        };
+        if (domains.hasOwnProperty(sid)) {
+            var usersRef = databaseref.child('schools').child(sid).child('users');
+            usersRef.on('child_added', updateRootUsers('added'));
+            usersRef.on('child_changed', updateRootUsers('changed'));
+            usersRef.on('child_removed', snapshot => databaseref.child('users').child(snapshot.val().user_id).remove());
+        }
+    }
+});
 
 //listener for minimum version
 const mv = databaseref.child('app_settings/min_version');
@@ -641,6 +673,7 @@ app.post('/api/add_activity', function(req, res){
       title: title,
       start_time: start_time * 1.0,
       end_time: end_time * 1.0,
+      timePosted: current_time,
       location: {
         name: location_name,
         address: location_address,
@@ -925,6 +958,39 @@ app.post('/api/delete_activity', function(req, res){
     });
 });
 
+app.get('/api/get_all_activities', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.admin){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    incrementTokenCalls(token);
+
+    var school_identifier = req.query.school_identifier;
+    var filter = req.query.filter;
+    if (filter) filter = JSON.parse(filter);
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+    
+    databaseref.child('schools/' + school_identifier + '/activities/').once('value').then(snapshot => {
+        let activities = snapshot.val();
+        if (!activities) {
+            return res.status(REQUESTSUCCESSFUL).send({});
+        }
+
+        activities = Object.keys(activities).map(k => activities[k]);
+        activities = filterActivities(activities, filter);
+        res.status(REQUESTSUCCESSFUL).send(activities);
+    });
+
+});
+
 app.get('/api/get_activities', function(req, res){
     var token = req.query.token;
 
@@ -938,6 +1004,8 @@ app.get('/api/get_activities', function(req, res){
 
     var school_identifier = req.query.school_identifier;
     var uid = req.query.uid;
+    var filter = req.query.filter;
+    if (filter) filter = JSON.parse(filter);
 
     if(!school_identifier){
         res.status(REQUESTBAD).send("invalid parameters: no school identifier");
@@ -969,9 +1037,9 @@ app.get('/api/get_activities', function(req, res){
     incrementTokenCalls(token);
 
     console.log('timequery: ' + timequery);
-
     databaseref.child('schools/' + school_identifier + '/activities/').orderByChild('start_time').startAt(timequery)
         .once('value').then(function(snapshot){
+            console.log('snapshot', snapshot.val());
             if(snapshot.val()) {
 
                 var activities = [];
@@ -992,7 +1060,6 @@ app.get('/api/get_activities', function(req, res){
                             activities.push(snapshot.val()[key]);
                         }
                     });
-
                     sortAndSendActivities(activities, res);
                     
                 }
@@ -1109,11 +1176,11 @@ app.post('/api/invite_group', function(req, res){
 });
 
 function sortAndSendActivities(activities, res) {
-  console.log('activities: ' + activities);
+    console.log('activities: ' + activities);
 
-  activities.sort(compareActivities);
+    activities.sort(compareActivities);
 
-  res.status(REQUESTSUCCESSFUL).send(activities);
+    res.status(REQUESTSUCCESSFUL).send(activities);
 }
 
 function compareActivities(a1, a2) {
@@ -1403,15 +1470,15 @@ function inviteGroup(guid, school_identifier, auid, activity_title) {
 //***************USER HANDLERS*************//
 
 app.post('/api/add_user', function(req, res){
-  var token = req.query.token;
+//   var token = req.query.token;
 
-  var auth = authenticateToken(token);
-  if(!auth.admin && !auth.write){
-       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
-      return;
-  }
+//   var auth = authenticateToken(token);
+//   if(!auth.admin && !auth.write){
+//        res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+//       return;
+//   }
 
-  incrementTokenCalls(token);
+//   incrementTokenCalls(token);
 
   console.log(JSON.stringify(req.body));
   
@@ -2680,6 +2747,94 @@ app.get('/api/get_search_groups_array', function(req, res){
 
 
 });
+
+function filterActivities(activities, filter) {
+    if (!activities || !filter) return activities;
+    return activities.filter(actv => {
+        if (!actv.activity_id) return false;
+
+        return !Object.keys(filter).some(field => {
+            let filterValue = filter[field];
+
+            // if (field === 'group') {
+            //     return !groupMembersId || !groupMembersId.includes(u.user_id);
+            // } else if (field === 'flagged') {
+                
+            // }
+
+            let actvValue = actv[field];
+            if (!filterValue) return false;
+            filterValue = filterValue.toString().toLowerCase();
+            if (actvValue) {
+                actvValue = actvValue.toString().toLowerCase();
+            } else actvValue = "";
+            if (filterValue[0] === '=') {
+                filterValue = filterValue.substring(1);
+                if (!filterValue) return false;
+                return filterValue != actvValue;
+            } else {
+                return actvValue.indexOf(filterValue) === -1;
+            }
+        });
+    });
+}
+
+
+function filterUsers(users, filter, school_identifier) {
+    return new Promise(resolve => {
+        if (!users || !filter) resolve(users);
+
+        let groupMembersId;
+        return new Promise(resolveGroup => {
+            if (!filter.group) resolveGroup();
+            else {
+                databaseref.child('schools').child(school_identifier).child('groups').child(filter.group).once('value').then(snapshot => {
+                    const group = snapshot.val();
+                    if (group && group.members) {
+                        groupMembersId = Object.keys(group.members);
+                        if (!groupMembersId.length) groupMembersId = null;
+                    }
+                    resolveGroup();
+                });
+            }
+        }).then(() => {
+            const tmpUsers = {};
+            Object.keys(users).forEach(k => {
+                const u = users[k];
+                if (!u.user_id) return;
+
+                if (!Object.keys(filter).some(field => {
+                    let filterValue = filter[field];
+
+                    if (field === 'group') {
+                        return !groupMembersId || !groupMembersId.includes(u.user_id);
+                    } else if (field === 'flagged') {
+                        
+                    }
+
+                    let userValue = u[field];
+                    if (!filterValue) return false;
+                    filterValue = filterValue.toString().toLowerCase();
+                    if (userValue) {
+                        userValue = userValue.toString().toLowerCase();
+                    } else userValue = "";
+                    if (filterValue[0] === '=') {
+                        filterValue = filterValue.substring(1);
+                        if (!filterValue) return false;
+                        return filterValue != userValue;
+                    } else {
+                        return userValue.indexOf(filterValue) === -1;
+                    }
+                })) {
+                    tmpUsers[k] = u;
+                }
+            });
+
+            resolve(tmpUsers);
+        });
+    });
+}
+
 //GET ALL USERS FROM SCHOOL
 app.get('/api/get_users', function(req, res){
   var token = req.query.token;
@@ -2699,16 +2854,74 @@ app.get('/api/get_users', function(req, res){
       return;
   }
 
+  var filter = req.query.filter;
+  if (filter) filter = JSON.parse(filter);
+  
+  
   databaseref.child('schools').child(school_identifier).child('users').once('value').then(function(snapshot){
-            if(snapshot.val())
-                res.status(REQUESTSUCCESSFUL).send(snapshot.val());
-            else
-                res.status(REQUESTSUCCESSFUL).send({});
-        })
-        .catch(function(error){
-            res.status(REQUESTBAD).send(error);
-            console.log(error);
+    let users = snapshot.val();
+    filterUsers(users, filter, school_identifier).then(users => {
+        res.status(REQUESTSUCCESSFUL).send(users || {});
     });
+    // if (users) {
+    //     if (filter) {
+    //         let groupMembersId;
+
+    //         return (
+    //             filter.group ? cb => {
+    //                 databaseref.child('schools').child(school_identifier).child('groups').child(filter.group).once('value').then(snapshot => {
+    //                     const group = snapshot.val();
+    //                     if (group && group.members) {
+    //                         groupMembersId = Object.keys(group.members);
+    //                         if (!groupMembersId.length) groupMembersId = null;
+    //                     }
+    //                     cb();
+    //                 });
+    //             } : cb => cb()
+    //         )(() => {
+    //             const tmpUsers = {};
+    //             Object.keys(users).forEach(k => {
+    //                 const u = users[k];
+    //                 if (!u.user_id) return;
+
+    //                 if (!Object.keys(filter).some(field => {
+    //                     let filterValue = filter[field];
+
+    //                     if (field === 'group') {
+    //                         return !groupMembersId || !groupMembersId.includes(u.user_id);
+    //                     }
+
+    //                     let userValue = u[field];
+    //                     if (!filterValue) return false;
+    //                     filterValue = filterValue.toString().toLowerCase();
+    //                     if (userValue) {
+    //                         userValue = userValue.toString().toLowerCase();
+    //                     } else userValue = "";
+    //                     if (filterValue[0] === '=') {
+    //                         filterValue = filterValue.substring(1);
+    //                         if (!filterValue) return false;
+    //                         return filterValue != userValue;
+    //                     } else {
+    //                         return userValue.indexOf(filterValue) === -1;
+    //                     }
+    //                 })) {
+    //                     tmpUsers[k] = u;
+    //                 }
+
+    //             });
+
+    //             res.status(REQUESTSUCCESSFUL).send(tmpUsers);
+
+    //         });
+    //     }
+    //     res.status(REQUESTSUCCESSFUL).send(users);
+    // }
+    // else
+    //     res.status(REQUESTSUCCESSFUL).send({});
+}).catch(function(error){
+    res.status(REQUESTBAD).send(error);
+    console.log(error);
+});
 
 
 });
@@ -3798,7 +4011,88 @@ app.post('/api/report_post', function(req, res){
 });
 
 
-app.get('/api/get_dashboard_data', function(req, res) {
+function scriptToSetActivitiesPostTime(){
+        
+    return Promise.all(Object.keys(domains).map((school, i) => {
+
+        return databaseref.child('schools').child(school).child('activities').transaction(activities => {
+            if (!activities) return activities;
+            Object.keys(activities).map(aid => {
+                activities[aid].timePosted = activities[aid].start_time;
+            });
+            return activities;
+        });
+
+    }));
+}
+
+function logUserSession(uid, guid, start, end) {
+    var monthKey = moment(start).format("YYYY-MM");
+    var weekKey = moment(start).format("YYYY-WW");
+    var dayKey = moment(start).format("YYYY-MM-DD");
+    var hourKey = moment(start).format("YYYY-MM-DD-HH");
+    var duration =moment(end).diff(start, 'seconds');
+
+    var sessionsLog = databaseref.child('sessions_log');
+    var totalSessionsRef = sessionsLog.child('total_sessions');
+    var totalSecondsRef = sessionsLog.child('total_seconds');
+
+    var sessionsThisMonth = {
+        sessions: sessionsLog.child('sessions_by_month').child(monthKey).child('sessions').child(uid.toString()),
+        groups: guid ? sessionsLog.child('sessions_by_month').child(monthKey).child('groups').child(guid.toString()) : null
+    };
+    var sessionsThisDay = {
+        sessions: sessionsLog.child('sessions_by_day').child(dayKey).child('sessions').child(uid.toString()),
+        groups: guid ? sessionsLog.child('sessions_by_day').child(dayKey).child('groups').child(guid.toString()) : null
+    };
+    var sessionsThisHour = {
+        sessions: sessionsLog.child('sessions_by_hour').child(hourKey).child('sessions').child(uid.toString()),
+        groups: guid ? sessionsLog.child('sessions_by_hour').child(hourKey).child('groups').child(guid.toString()) : null
+    };
+
+    const pushDuration = arr => {
+        arr = arr || [];
+        arr.push(duration);
+        return arr;
+    };
+
+    var promises = [];
+
+    promises.push(totalSessionsRef.transaction(total => ++total));
+    promises.push(totalSecondsRef.transaction(s => s += duration));
+    promises.push(sessionsThisMonth.sessions.transaction(pushDuration));
+    promises.push(sessionsThisDay.sessions.transaction(pushDuration));
+    promises.push(sessionsThisHour.sessions.transaction(pushDuration));
+
+    if (guid)  {
+        promises.push(sessionsThisMonth.groups.transaction(pushDuration));
+        promises.push(sessionsThisDay.groups.transaction(pushDuration));
+        promises.push(sessionsThisHour.groups.transaction(pushDuration));
+    }
+    
+    return Promise.all(promises);
+}
+
+// app.get('/logsession', (req, res) =>  {
+//     var data = req.query.data;
+//     var arr = data.split(',');
+//     logUserSession(arr[0], arr[1], arr[2], arr[3]).then(() => res.send(200), () => res.send(500));
+// });
+
+// app.get('/removeall', (req, res) =>  {
+//     databaseref.child('sessions_log').set({});
+//     res.send(200);
+// });
+
+// app.get('/all', (req, res) =>  {
+//     databaseref.child('sessions_log').once('value')
+//     .then(snapshot => {
+//         // fs.writeFileSync('sessions.json', JSON.stringify(snapshot.val()));
+//         res.json(snapshot.val());
+//     });
+// });
+
+app.get('/api/get_dashboard_data', (req, res) => {
     // var token = req.query.token;
 
     // var auth = authenticateToken(token);
@@ -3809,7 +4103,7 @@ app.get('/api/get_dashboard_data', function(req, res) {
 
     // incrementTokenCalls(token);
 
-    var school_identifier = req.query['school_identifier'];
+    const school_identifier = req.query['school_identifier'];
 
     if (!school_identifier) school_identifier = 'duke'; //for tests only
 
@@ -3818,134 +4112,1357 @@ app.get('/api/get_dashboard_data', function(req, res) {
         return;
     }
 
-    var dt = new Date().getTime();
-    databaseref.child('schools').once('value').then(function(snapshot) {
-        var schools = snapshot.val();
-        var selectedSchool = schools[school_identifier];
-        var schoolGroups = selectedSchool.groups || {};
-        //count users from all schools
-        var userCount = Object.keys(schools).reduce((count, id) => count + Object.keys(schools[id].users || {}).length, 0);
+    const getSchool = databaseref.child('schools').child(school_identifier).once('value');
+    const getAllUsers = databaseref.child('users').once('value');
+    const getSessionsLog = databaseref.child('sessions_log').once('value');    
+    const getSchoolActivities = databaseref.child('schools').child(school_identifier).child('activities').once('value');;
+
+    Promise.all([getSchool, getAllUsers, getSessionsLog, getSchoolActivities]).then(values => {
+        //selected school
+        const selectedSchool = values[0].val();
+        //active groups
+        const schoolGroups = selectedSchool.groups || {};
+        //sessions
+        const sessions_log = values[2].val() ||  {};
+        //school activities
+        const schoolActivities = values[3].val() || {};
+        //count users from selected school
+        const schoolUserCount = Object.keys(selectedSchool.users || {}).length;
+        //total days recording sessions
+        const total_days = Object.keys(sessions_log.sessions_by_day ||  {}).length; //check if we only need sessions by day here
+        //total unique user sessions recorded
+        const total_unique_sessions = Object.keys(sessions_log.sessions_by_day ||  {})
+                            .map(k => Object.keys((sessions_log.sessions_by_day ||  {})[k].sessions).length)
+                            .reduce((prev, cur) => prev + cur, 0);
+
+        let totalPlanningTime = 0;
+        Object.keys(schoolActivities).map(k => schoolActivities[k])
+        .forEach(a => {
+
+            const postedAt = moment(a.timePosted * 1000);
+            const eventAt = moment(a.start_time * 1000);
+
+            totalPlanningTime += eventAt.diff(postedAt, 'seconds');
+        });
+
+        //count of users from all schools
+        const unique_users = values[1].numChildren();
+        //Percentage of users who belongs to the selected school
+        const percent_school_population = (schoolUserCount / unique_users * 100).toFixed(2);
+        //counting daily active unique users
+        const daily_active_users = Math.round(total_unique_sessions / total_days);
+        //total number of sessions
+        const total_number_sessions = sessions_log.total_sessions;
+        //avg duration of sessions
+        const avg_session_duration = Math.round(sessions_log.total_seconds / total_number_sessions);
+        
+        //count groups with at least one member and count members from groups of selected school
+        let active_groups = 0, schoolMemberCount = 0;
+        Object.keys(schoolGroups).forEach(k => {
+            const memberCount = Object.keys(schoolGroups[k].members || {}).length;
+            if (memberCount) {
+                active_groups++;
+                schoolMemberCount += memberCount;
+            }
+        });
+        //count avg group size
+        const avg_group_size = Math.round(active_groups === 0 ? 0 : schoolMemberCount / active_groups);
+        //find groups hosting events
+        const groups_hosting = [];
+        Object.keys(schoolActivities ||  {}).map(k => schoolActivities[k]).forEach(a => {
+            if (a.host_group) {
+                groups_hosting.push(a.host_group);
+            }
+        });
+        //avg hosted events by groups
+        const avg_hosted_events_by_group = Math.round(groups_hosting.length / (_.unique(groups_hosting).length || 1));
+
+        // events avg planning time
+        const events_avg_planning_time = Math.round(totalPlanningTime / Object.keys(schoolActivities).length);
+
+        res.status(REQUESTSUCCESSFUL).send({
+            unique_users,
+            percent_school_population,
+            daily_active_users,
+            total_number_sessions,
+            avg_session_duration,
+            active_groups,
+            avg_group_size,
+            avg_hosted_events_by_group,
+            events_avg_planning_time
+        });
+
+    });
+});
+
+        // res.status(REQUESTSUCCESSFUL).send({
+        //     free_food_events_chart,
+        //     events_posting_over_time: getChartData(events_posting_over_time),
+        //     events_time_over_time: getChartData(events_time_over_time),
+        //     events_attendance_over_time: getChartData(events_attendance_over_time),
+        //     events_avg_planning_time,
+        //     events_by_audience: {
+        //         grad_undergrad_chart,
+        //         grad_year_chart,
+        //         fields_of_study_chart
+        //     }
+        // });
+
+app.get('/api/get_users_analytics', function(req, res) {
+    // var token = req.query.token;
+
+    // var auth = authenticateToken(token);
+    // if(!auth.admin){
+    //     res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+    //     return;
+    // }
+
+    // incrementTokenCalls(token);
+
+    var filter = req.query['filter'], school_identifier = req.query['school_identifier'],
+        selected_date = moment(req.query['date']).startOf('day').toDate(), guid,
+        timezone = req.query['timezone'];
+
+    if (filter) {
+        filter = JSON.parse(filter);
+        guid = filter.group;
+    }
+
+    if (!school_identifier) school_identifier = 'duke'; //for tests only
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    const getSchoolUsers = databaseref.child('schools').child(school_identifier).child('users').once('value');
+    const getSessionsLog = databaseref.child('sessions_log').once('value');
+
+
+    Promise.all([getSchoolUsers, getSessionsLog]).then(values => {
+        let schoolUsers = values[0].val();
+        const sessions_log = values[1].val() ||  {};
+        // fs.writeFileSync('sessions.json', JSON.stringify(sessions_log), {
+        //     encoding: 'utf-8'
+        // });
+        
+        filterUsers(schoolUsers, filter, school_identifier).then(users => {
+            schoolUsers = users || {};
+
+            let academic_levels = [];
+            let graduation_years = [];
+            let majors = [];
+
+            Object.keys(schoolUsers).map(k => schoolUsers[k]).forEach(u => {
+                if (['grad', 'undergrad'].includes(u.academic_level))
+                    academic_levels.push(u.academic_level);
+                
+                if (u.graduation_year)
+                    graduation_years.push(u.graduation_year);
+
+                if (u.major)
+                    majors.push(u.major);
+            });
+        
+            //grad/undergrad chart
+            const countGradUndergrad = _.countBy(academic_levels);
+            const grad_undergrad_chart = [countGradUndergrad['grad'], countGradUndergrad['undergrad']];
+
+            //grad_year chart
+            const countGradYear = _.countBy(graduation_years);
+            const years = Object.keys(countGradYear).sort();
+            const grad_year_chart = {
+                years,
+                data: years.map(y => countGradYear[y])
+            };
+
+            //fields of study
+            const majorMaps = {
+                'cs': 'computer science',
+                'compsci': 'computer science',
+                'econ': 'economics',
+                'gh': 'global health',
+                'neuro': 'neuroscience',
+                'public policy studies': 'public policy',
+                'statz': 'statistics',
+                'tbd': 'undecided'
+            };
+            majors = _.flatten(majors.map(m => m.toLowerCase().trim().split(/(?:[+,\/]|and)+/).map(s => s.trim())));
+            majors = majors.map(m => (majorMaps[m] || m).split(' ').map(w => w.split('').map((l, i) => i === 0 ? l.toUpperCase() : l).join('')).join(' '));
+            const countMajors = _.countBy(majors);
+            const fields_of_study_chart = _.chain(countMajors).map((count, major) => Object({
+                word: major,
+                count: count
+            })).sortBy('count').value().map((obj, i) => Object({
+                word: obj.word,
+                count: i + 1
+            }));
+        
+
+            //sessions over time
+
+            const hourFormat = 'YYYY-MM-DD-HH';
+            const dayFormat = 'YYYY-MM-DD';
+            const monthFormat = 'YYYY-MM';
+
+            const dayLabel = 'h:00 A';
+            const weekLabel = 'MMM. D, YYYY [-] dddd';
+            const monthLabel = 'MMM. D, YYYY';
+            const yearLabel = 'MMM. YYYY';
+
+            let now = moment();
+            const nowTimezone = now.clone();
+            nowTimezone.tz(timezone);
+            nowTimezone.add(nowTimezone.utcOffset() - now.utcOffset(), 'minutes');
+            now = nowTimezone;
+
+            // by day
+            
+            const selected_day_hours = Object.keys(sessions_log.sessions_by_hour ||  {}).sort()
+            // filter 'by hours' sessions using the selected day
+            .filter(k => moment(k, hourFormat).startOf('day').diff(selected_date, 'days') === 0);
+
+            const sessions_by_day = [];
+            for (let h = 0; h <= 23; h++) {
+                const itemDate = moment(selected_date).hours(h);
+                // console.log(itemDate.format(dayLabel), now.endOf('hour').format(), itemDate.endOf('hour').format(), moment(itemDate).endOf('hour').diff(now.endOf('hour')));
+                if (moment(itemDate).endOf('hour').diff(now.endOf('hour')) > 0) continue;
+                const label = itemDate.format(dayLabel);
+                const currentHourThisDay = selected_day_hours.filter(k => moment(k, hourFormat).hour() === h)[0];
+                if (!currentHourThisDay) {
+                    sessions_by_day.push({
+                        label,
+                        count: 0
+                    });
+                } else {
+                    sessions_by_day.push({
+                        label,
+                        count: Object.keys((sessions_log.sessions_by_hour ||  {})[currentHourThisDay][guid ? 'groups' : 'sessions'] || {}).length
+                    });
+                }
+            }
+
+            // by week
+
+            const startOfWeek = moment(selected_date).startOf('week');
+            const endOfWeek = moment(selected_date).endOf('week');
+
+            const selected_week_days = Object.keys(sessions_log.sessions_by_day ||  {}).sort()
+            // filter 'by days' sessions using the selected day
+            .filter(k => moment(k, dayFormat).isBetween(startOfWeek, endOfWeek, null, '[]'));
+
+            const sessions_by_week = [];
+            for (let d = 0; d <= 6; d++) {
+                const itemDate = moment(startOfWeek).add(d, 'days');
+                if (moment(itemDate).endOf('day').diff(now.endOf('day')) > 0) continue;
+                const label = itemDate.format(weekLabel);
+                const currentDayThisWeek = selected_week_days.filter(k => moment(k, dayFormat).weekday() === d)[0];
+                if (!currentDayThisWeek) {
+                    sessions_by_week.push({
+                        label,
+                        count: 0
+                    });
+                } else {
+                    sessions_by_week.push({
+                        label,
+                        count: Object.keys((sessions_log.sessions_by_day ||  {})[currentDayThisWeek][guid ? 'groups' : 'sessions'] || {}).length
+                    });
+                }
+            }
+
+            // by month
+
+            const startOfMonth = moment(selected_date).startOf('month');
+            const endOfMonth = moment(selected_date).endOf('month');
+            const numOfDaysInMonth = moment(selected_date).daysInMonth();
+
+            const selected_month_days = Object.keys(sessions_log.sessions_by_day ||  {}).sort()
+            // filter 'by days' sessions using the selected day
+            .filter(k => moment(k, dayFormat).isBetween(startOfMonth, endOfMonth, null, '[]'));
+
+
+            const sessions_by_month = [];
+            for (let d = 1; d <= numOfDaysInMonth; d++) {
+                const itemDate = moment(startOfMonth).add(d - 1, 'days');
+                if (moment(itemDate).endOf('day').diff(now.endOf('day')) > 0) continue;
+                const label = itemDate.format(monthLabel);
+                const currentDayThisMonth = selected_month_days.filter(k => moment(k, dayFormat).date() === d)[0];
+                
+                if (!currentDayThisMonth) {
+                    sessions_by_month.push({
+                        label,
+                        count: 0
+                    });
+                } else {
+                    sessions_by_month.push({
+                        label,
+                        count: Object.keys((sessions_log.sessions_by_day ||  {})[currentDayThisMonth][guid ? 'groups' : 'sessions'] || {}).length
+                    });
+                }
+            }
+
+
+            // by year
+
+            const startOfYear = moment(selected_date).startOf('year');
+            const endOfYear = moment(selected_date).endOf('year');
+
+            const selected_year_months = Object.keys(sessions_log.sessions_by_month ||  {}).sort()
+            // filter 'by days' sessions using the selected day
+            .filter(k => moment(k, monthFormat).isBetween(startOfYear, endOfYear, null, '[]'));
+
+            const sessions_by_year = [];
+            for (let m = 0; m <= 11; m++) {
+                const itemDate = moment(startOfYear).add(m, 'months');
+                if (moment(itemDate).endOf('month').diff(now.endOf('month')) > 0) continue;
+                const label = itemDate.format(yearLabel);
+                const currentMonthThisYear = selected_year_months.filter(k => moment(k, monthFormat).month() === m)[0];
+                if (!currentMonthThisYear) {
+                    sessions_by_year.push({
+                        label,
+                        count: 0
+                    });
+                } else {
+                    sessions_by_year.push({
+                        label,
+                        count: Object.keys((sessions_log.sessions_by_month ||  {})[currentMonthThisYear][guid ? 'groups' : 'sessions'] || {}).length
+                    });
+                }
+            }
+
+            res.status(REQUESTSUCCESSFUL).send({
+                // charts
+                grad_undergrad_chart,
+                grad_year_chart,
+                fields_of_study_chart,
+                // session over time charts
+                sessions_by_day,
+                sessions_by_week,
+                sessions_by_month,
+                sessions_by_year
+            });
+
+        });
+
+    });
+});
+
+function changeUserSuspension(school_identifier, uid, suspended) {
+    return databaseref.child('schools').child(school_identifier).child('users').child(uid).child('suspended').set(suspended);
+}
+
+app.post('/api/change_user_suspension', (req, res) => {
+    // var token = req.query.token;
+
+    // var auth = authenticateToken(token);
+    // if(!auth.admin){
+    //     res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+    //     return;
+    // }
+
+    // incrementTokenCalls(token);
+
+    const school_identifier = req.body['school_identifier'];
+    const uid = req.body['uid'];
+    const suspended = req.body['suspended'];
+    console.log(school_identifier, uid, suspended);
+
+    changeUserSuspension(school_identifier, uid, suspended)
+        .then(() => res.sendStatus(REQUESTSUCCESSFUL));
+    
+});
+
+app.get('/api/get_dashboard_events_data', function(req, res) {
+    // var token = req.query.token;
+
+    // var auth = authenticateToken(token);
+    // if(!auth.admin){
+    //     res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+    //     return;
+    // }
+
+    // incrementTokenCalls(token);
+
+    var school_identifier = req.query['school_identifier'],
+        selected_date = moment(req.query['date']).startOf('day').toDate();
+
+    if (!school_identifier) school_identifier = 'duke'; //for tests only
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    var schoolRef = databaseref.child('schools').child(school_identifier);
+    var getSchoolActivities = schoolRef.child('activities').once('value');
+    var getSchoolGroups = schoolRef.child('groups').once('value');
+    var getSchoolUsers = schoolRef.child('users').once('value');
+
+    Promise.all([getSchoolActivities, getSchoolGroups, getSchoolUsers]).then(values => {
+        var schoolActivities = values[0].val();
+        var schoolGroups = values[1].val();
+        var schoolUsers = values[2].val();
+
+        const interests = [];
+        let totalPlanningTime = 0;
+
+
+        const hourFormat = 'YYYY-MM-DD-HH';
+        const dayFormat = 'YYYY-MM-DD';
+        const monthFormat = 'YYYY-MM';
+
+        const dayLabel = 'h:00 A';
+        const weekLabel = 'MMM. D, YYYY [-] dddd';
+        const monthLabel = 'MMM. D, YYYY';
+        const yearLabel = 'MMM. YYYY';
+
+        //event posting over time
+
+        const events_posting_over_time = {
+            by_hours: {},
+            by_days: {},
+            by_months: {}
+        };
+
+        const events_time_over_time = {
+            by_hours: {},
+            by_days: {},
+            by_months: {}
+        };
+
+        const events_attendance_over_time = {
+            by_hours: {},
+            by_days: {},
+            by_months: {}
+        };
+
+        const usersRelatedToActivities = [];
+
+        Object.keys(schoolActivities).map(k => schoolActivities[k])
+        .forEach(a => {
+            if ((a.interests || []).length)
+                for(let i = 0; i < a.interests.length; i++)
+                    interests.push(a.interests[i]);
+
+            const postedAt = moment(a.timePosted * 1000);
+            const eventAt = moment(a.start_time * 1000);
+
+            totalPlanningTime += eventAt.diff(postedAt, 'seconds');
+
+            const hourPostingLabel = postedAt.format(hourFormat);
+            const dayPostingLabel = postedAt.format(dayFormat);
+            const monthPostingLabel = postedAt.format(monthFormat);
+
+            const hourEventLabel = eventAt.format(hourFormat);
+            const dayEventLabel = eventAt.format(dayFormat);
+            const monthEventLabel = eventAt.format(monthFormat);
+
+            events_posting_over_time.by_hours[hourPostingLabel] = (events_posting_over_time.by_hours[hourPostingLabel] || 0) + 1;
+            events_posting_over_time.by_days[dayPostingLabel] = (events_posting_over_time.by_days[dayPostingLabel] || 0) + 1;
+            events_posting_over_time.by_months[monthPostingLabel] = (events_posting_over_time.by_months[monthPostingLabel] || 0) + 1;
+
+            events_time_over_time.by_hours[hourEventLabel] = (events_time_over_time.by_hours[hourEventLabel] || 0) + 1;
+            events_time_over_time.by_days[dayEventLabel] = (events_time_over_time.by_days[dayEventLabel] || 0) + 1;
+            events_time_over_time.by_months[monthEventLabel] = (events_time_over_time.by_months[monthEventLabel] || 0) + 1;
+
+            if (a.replies) {
+                const attendees = Object.keys(a.replies).map(k => a.replies[k]).filter(r => r === 'going').length;
+
+                events_attendance_over_time.by_hours[hourEventLabel] = (events_attendance_over_time.by_hours[hourEventLabel] || 0) + attendees;
+                events_attendance_over_time.by_days[dayEventLabel] = (events_attendance_over_time.by_days[dayEventLabel] || 0) + attendees;
+                events_attendance_over_time.by_months[monthEventLabel] = (events_attendance_over_time.by_months[monthEventLabel] || 0) + attendees;
+            }
+
+            const replies = a.replies ||  {};
+            Object.keys(replies).filter(k => replies[k] === 'going')
+                    .forEach(k => usersRelatedToActivities.push(k));
+
+            if (a.host_group) {
+                const actGroup = schoolGroups[a.host_group];
+                if (actGroup && actGroup.members) {
+                    Object.keys(actGroup.members).forEach(k => usersRelatedToActivities.push(k));
+                }
+            } else {
+                usersRelatedToActivities.push(a.host);
+            }
+        });
+
+        const academic_levels = [];
+        const graduation_years = [];
+        let majors = [];
+
+        _.uniq(usersRelatedToActivities).map(k => schoolUsers[k]).forEach(u => {
+            if (!u) return;
+            if (['grad', 'undergrad'].includes(u.academic_level))
+                academic_levels.push(u.academic_level);
+            
+            if (u.graduation_year)
+                graduation_years.push(u.graduation_year);
+
+            if (u.major)
+                majors.push(u.major);
+        });
+
+
+
+        //grad/undergrad chart
+        var countGradUndergrad = _.countBy(academic_levels);
+        var grad_undergrad_chart = [countGradUndergrad['grad'], countGradUndergrad['undergrad']];
+
+        //grad_year chart
+        var countGradYear = _.countBy(graduation_years);
+        var years = Object.keys(countGradYear).sort();
+        var grad_year_chart = {
+            years: years,
+            data: years.map(y => countGradYear[y])
+        };
+
+        //fields of study
+        const majorMaps = {
+            'cs': 'computer science',
+            'compsci': 'computer science',
+            'econ': 'economics',
+            'gh': 'global health',
+            'neuro': 'neuroscience',
+            'public policy studies': 'public policy',
+            'statz': 'statistics',
+            'tbd': 'undecided'
+        };
+        majors = _.flatten(majors.map(m => m.toLowerCase().trim().split(/(?:[+,\/]|and)+/).map(s => s.trim())));
+        majors = majors.map(m => (majorMaps[m] || m).split(' ').map(w => w.split('').map((l, i) => i === 0 ? l.toUpperCase() : l).join('')).join(' '));
+        var countMajors = _.countBy(majors);
+        var fields_of_study_chart = _.chain(countMajors).map((count, major) => Object({
+            word: major,
+            count: count
+        })).sortBy('count').value().map((obj, i) => Object({
+            word: obj.word,
+            count: i + 1
+        }));
+
+        // events avg planning time
+
+        const events_avg_planning_time = Math.round(totalPlanningTime / Object.keys(schoolActivities).length);
+
+        // free food events
+
+        var countInterests = _.countBy(interests);
+        var free_food_events_chart = [countInterests['Free Food'], interests.length - countInterests['Free Food']];
+
+
+        // event time/event posting time over time
+
+        const getChartData = obj => {
+            // by day
+            
+            const selected_day_hours = Object.keys(obj.by_hours).sort()
+            // filter 'by hours' sessions using the selected day
+            .filter(k => moment(k, hourFormat).startOf('day').diff(selected_date, 'days') === 0);
+
+            const events_by_day = [];
+            for (let h = 0; h <= 23; h++) {
+                const label = moment(selected_date).hours(h).format(dayLabel);
+                const currentHourThisDay = selected_day_hours.filter(k => moment(k, hourFormat).hour() === h)[0];
+                if (!currentHourThisDay) {
+                    events_by_day.push({
+                        label,
+                        count: 0
+                    });
+                } else {
+                    events_by_day.push({
+                        label,
+                        count: obj.by_hours[currentHourThisDay]
+                    });
+                }
+            }
+
+            // by week
+
+            const startOfWeek = moment(selected_date).startOf('week');
+            const endOfWeek = moment(selected_date).endOf('week');
+
+            const selected_week_days = Object.keys(obj.by_days).sort()
+            // filter 'by days' sessions using the selected day
+            .filter(k => moment(k, dayFormat).isBetween(startOfWeek, endOfWeek, null, '[]'));
+
+            const events_by_week = [];
+            for (let d = 0; d <= 6; d++) {
+                const label = moment(startOfWeek).add(d, 'days').format(weekLabel);
+                const currentDayThisWeek = selected_week_days.filter(k => moment(k, dayFormat).weekday() === d)[0];
+                if (!currentDayThisWeek) {
+                    events_by_week.push({
+                        label,
+                        count: 0
+                    });
+                } else {
+                    events_by_week.push({
+                        label,
+                        count: obj.by_days[currentDayThisWeek]
+                    });
+                }
+            }
+
+            // by month
+
+            const startOfMonth = moment(selected_date).startOf('month');
+            const endOfMonth = moment(selected_date).endOf('month');
+            const numOfDaysInMonth = moment(selected_date).daysInMonth();
+
+            const selected_month_days = Object.keys(obj.by_days).sort()
+            // filter 'by days' sessions using the selected day
+            .filter(k => moment(k, dayFormat).isBetween(startOfMonth, endOfMonth, null, '[]'));
+
+
+            const events_by_month = [];
+            for (let d = 1; d <= numOfDaysInMonth; d++) {
+                const label = moment(startOfMonth).add(d - 1, 'days').format(monthLabel);
+                const currentDayThisMonth = selected_month_days.filter(k => moment(k, dayFormat).date() === d)[0];
+                
+                if (!currentDayThisMonth) {
+                    events_by_month.push({
+                        label,
+                        count: 0
+                    });
+                } else {
+                    events_by_month.push({
+                        label,
+                        count: obj.by_days[currentDayThisMonth]
+                    });
+                }
+            }
+
+
+            // by year
+
+            const startOfYear = moment(selected_date).startOf('year');
+            const endOfYear = moment(selected_date).endOf('year');
+
+            const selected_year_months = Object.keys(obj.by_months).sort()
+            // filter 'by days' sessions using the selected day
+            .filter(k => moment(k, monthFormat).isBetween(startOfYear, endOfYear, null, '[]'));
+
+            const events_by_year = [];
+            for (let m = 0; m <= 11; m++) {
+                const label = moment(startOfYear).add(m, 'months').format(yearLabel);
+                const currentMonthThisYear = selected_year_months.filter(k => moment(k, monthFormat).month() === m)[0];
+                if (!currentMonthThisYear) {
+                    events_by_year.push({
+                        label,
+                        count: 0
+                    });
+                } else {
+                    events_by_year.push({
+                        label,
+                        count: obj.by_months[currentMonthThisYear]
+                    });
+                }
+            }
+
+            return {
+                by_day: events_by_day,
+                by_week: events_by_week,
+                by_month: events_by_month,
+                by_year: events_by_year
+            };
+
+            
+        };
+
+        res.status(REQUESTSUCCESSFUL).send({
+            free_food_events_chart,
+            events_posting_over_time: getChartData(events_posting_over_time),
+            events_time_over_time: getChartData(events_time_over_time),
+            events_attendance_over_time: getChartData(events_attendance_over_time),
+            events_avg_planning_time,
+            events_by_audience: {
+                grad_undergrad_chart,
+                grad_year_chart,
+                fields_of_study_chart
+            }
+        });
+    });
+
+});
+
+
+app.get('/api/get_dashboard_users_data', function(req, res) {
+    // var token = req.query.token;
+
+    // var auth = authenticateToken(token);
+    // if(!auth.admin){
+    //     res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+    //     return;
+    // }
+
+    // incrementTokenCalls(token);
+
+    var guid = req.query['guid'], school_identifier = req.query['school_identifier'],
+        selected_date = moment(req.query['date']).startOf('day').toDate();
+
+    if (!school_identifier) school_identifier = 'duke'; //for tests only
+
+    if(!school_identifier){
+        res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+        return;
+    }
+
+    var getSchool = databaseref.child('schools').child(school_identifier).once('value');
+    var getAllUsers = databaseref.child('users').once('value');
+    var getSessionsLog = databaseref.child('sessions_log').once('value');    
+    var getSchoolActivities = databaseref.child('schools').child(school_identifier).child('activities').once('value');;
+
+    Promise.all([getSchool, getAllUsers, getSessionsLog, getSchoolActivities]).then(values => {
+        var selectedSchool = values[0].val();
+        //count of users from all schools
+        var unique_users = values[1].numChildren();
+        //sessions
+        var sessions_log = values[2].val() ||  {};
+        //school activities
+        var schoolActivities = values[3].val();
         //count users from selected school
         var schoolUserCount = Object.keys(selectedSchool.users || {}).length;
         //Percentage of users who belongs to the selected school
-        var percentSchoolPopulation = (schoolUserCount / userCount * 100).toFixed(2);
-        //count groups with at least one member
-        var schoolActiveGroups = Object.keys(schoolGroups).filter(k => Object.keys(schoolGroups[k].members || {}).length).length;
-        //count members from groups of selected school
-        var schoolMemberCount = Object.keys(schoolGroups).reduce((count, id) => count + Object.keys(schoolGroups[id].members || {}).length, 0);
-        //avg grup size
-        var avgGroupSize = (schoolActiveGroups === 0 ? 0 : schoolMemberCount / schoolActiveGroups).toFixed(2);
+        var percent_school_population = (schoolUserCount / unique_users * 100).toFixed(2);
         
-        res.status(REQUESTSUCCESSFUL).send({
-            unique_users: userCount,
-            percent_school_population: percentSchoolPopulation,
-            //active_users
-            active_groups: schoolActiveGroups,
-            //avg_hosted_events_by_groups
-            avg_group_size: avgGroupSize
+        //if a school is selected, get all it's users with academic_level set, filtering by group membership, when selected
+        var group = guid ? selectedSchool.groups[guid] : {};
+        var filteredUsers = users = Object.keys(selectedSchool.users || {}).map(k => selectedSchool.users[k]).filter(u => {
+            if (!guid) return true;
+            return group.members && groups.members[u.user_id];
         });
 
-    });
-});
+        var academic_levels = [];
+        var graduation_years = [];
+        var majors = [];
+        var interests = [];
 
+        filteredUsers.forEach(u => {
+            if (['grad', 'undergrad'].includes(u.academic_level))
+                academic_levels.push(u.academic_level);
+            
+            if (u.graduation_year)
+                graduation_years.push(u.graduation_year);
+                
+            if ((u.interests || []).length)
+                for(let i = 0; i < u.interests.length; i++)
+                    interests.push(u.interests[i]);
 
-app.get('/api/get_grad_undergrad_chart_data', function(req, res) {
-    // var token = req.query.token;
-
-    // var auth = authenticateToken(token);
-    // if(!auth.admin){
-    //     res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
-    //     return;
-    // }
-
-    // incrementTokenCalls(token);
-
-    var guid, school_identifier = req.query['school_identifier'];
-    if (school_identifier)
-        guid = req.query['guid'];
-
-
-    var ref = databaseref.child('schools');
-    if (school_identifier)
-        ref = ref.child(school_identifier);
-
-    ref.once('value').then(function(snapshot) {
-        var data = snapshot.val();
-        var users = [];
-        if (school_identifier) {
-            //if a school is selected, get all it's users with academic_level set, filtering by group membership, when selected
-            var group = guid ? data.groups[guid] : {};
-            users = Object.keys(data.users).map(k => data.users[k]).filter(u => {
-                if (!u.academic_level) return false;
-                if (!guid) return true;
-                return group.members && groups.members[u.user_id];
-            })
-        } else {
-            //if no schools are selected, just get all users from all schools with academic_level set
-            users = [].concat.apply([], Object.keys(data).map(k => {
-                var users = data[k].users;
-                return Object.keys(users).map(k => users[k]).filter(u => u.academic_level);
-            }));
-        }
-        var grad = 0, undergrad = 0;
-        users.forEach(u => {
-            if (u.academic_level === 'grad')
-                grad++;
-            else if (u.academic_level === 'undergrad')
-                undergrad++;
+            if (u.major)
+                majors.push(u.major);
         });
 
-        res.json([grad, undergrad]);
-    });
-});
+        const groups_hosting = [];
+        Object.keys(schoolActivities ||  {}).map(k => schoolActivities[k]).forEach(a => {
+            if (a.host_group) {
+                groups_hosting.push(a.host_group);
+            }
+        });
 
-app.get('/api/get_grad_year_chart_data', function(req, res) {
-    // var token = req.query.token;
+        //avg hosted events by groups
+        const avg_hosted_events_by_group = Math.round(groups_hosting.length / (_.unique(groups_hosting).length || 1));
+        //grad/undergrad chart
+        var countGradUndergrad = _.countBy(academic_levels);
+        var grad_undergrad_chart = [countGradUndergrad['grad'], countGradUndergrad['undergrad']];
 
-    // var auth = authenticateToken(token);
-    // if(!auth.admin){
-    //     res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
-    //     return;
-    // }
-
-    // incrementTokenCalls(token);
-
-    var guid, school_identifier = req.query['school_identifier'];
-    if (school_identifier)
-        guid = req.query['guid'];
-
-
-    var ref = databaseref.child('schools');
-    if (school_identifier)
-        ref = ref.child(school_identifier);
-
-    ref.once('value').then(function(snapshot) {
-        var data = snapshot.val();
-        var users = [];
-        if (school_identifier) {
-            //if a school is selected, get all it's users with graduation_year set, filtering by group membership, when selected
-            var group = guid ? data.groups[guid] : {};
-            users = Object.keys(data.users).map(k => data.users[k]).filter(u => {
-                if (!u.graduation_year) return false;
-                if (!guid) return true;
-                return group.members && groups.members[u.user_id];
-            })
-        } else {
-            //if no schools are selected, just get all users from all schools with graduation_year set
-            users = [].concat.apply([], Object.keys(data).map(k => {
-                var users = data[k].users;
-                return Object.keys(users).map(k => users[k]).filter(u => u.graduation_year);
-            }));
-        }
-        var countGradYear = _.countBy(users, 'graduation_year');
+        //grad_year chart
+        var countGradYear = _.countBy(graduation_years);
         var years = Object.keys(countGradYear).sort();
-        res.json({
+        var grad_year_chart = {
             years: years,
             data: years.map(y => countGradYear[y])
+        };
+
+        //self reported interests
+        var countInterests = _.countBy(interests);
+        interests = _.uniq(interests.sort(), true);
+        var self_reported_interests_chart = {
+            interests: interests,
+            data: interests.map(i => countInterests[i])
+        };
+
+        //fields of study
+        const majorMaps = {
+            'cs': 'computer science',
+            'compsci': 'computer science',
+            'econ': 'economics',
+            'gh': 'global health',
+            'neuro': 'neuroscience',
+            'public policy studies': 'public policy',
+            'statz': 'statistics',
+            'tbd': 'undecided'
+        };
+        majors = _.flatten(majors.map(m => m.toLowerCase().trim().split(/(?:[+,\/]|and)+/).map(s => s.trim())));
+        majors = majors.map(m => (majorMaps[m] || m).split(' ').map(w => w.split('').map((l, i) => i === 0 ? l.toUpperCase() : l).join('')).join(' '));
+        var countMajors = _.countBy(majors);
+        var fields_of_study_chart = _.chain(countMajors).map((count, major) => Object({
+            word: major,
+            count: count
+        })).sortBy('count').value().map((obj, i) => Object({
+            word: obj.word,
+            count: i + 1
+        }));
+
+
+        //sessions over time
+
+        const hourFormat = 'YYYY-MM-DD-HH';
+        const dayFormat = 'YYYY-MM-DD';
+        const monthFormat = 'YYYY-MM';
+
+        const dayLabel = 'h:00 A';
+        const weekLabel = 'MMM. D, YYYY [-] dddd';
+        const monthLabel = 'MMM. D, YYYY';
+        const yearLabel = 'MMM. YYYY';
+
+        // by day
+        
+        const selected_day_hours = Object.keys(sessions_log.sessions_by_hour ||  {}).sort()
+        // filter 'by hours' sessions using the selected day
+        .filter(k => moment(k, hourFormat).startOf('day').diff(selected_date, 'days') === 0);
+
+        const sessions_by_day = [];
+        for (let h = 0; h <= 23; h++) {
+            const label = moment(selected_date).hours(h).format(dayLabel);
+            const currentHourThisDay = selected_day_hours.filter(k => moment(k, hourFormat).hour() === h)[0];
+            if (!currentHourThisDay) {
+                sessions_by_day.push({
+                    label,
+                    count: 0
+                });
+            } else {
+                sessions_by_day.push({
+                    label,
+                    count: Object.keys((sessions_log.sessions_by_hour ||  {})[currentHourThisDay][guid ? 'groups' : 'sessions'] || {}).length
+                });
+            }
+        }
+
+        // by week
+
+        const startOfWeek = moment(selected_date).startOf('week');
+        const endOfWeek = moment(selected_date).endOf('week');
+
+        const selected_week_days = Object.keys(sessions_log.sessions_by_day ||  {}).sort()
+        // filter 'by days' sessions using the selected day
+        .filter(k => moment(k, dayFormat).isBetween(startOfWeek, endOfWeek, null, '[]'));
+
+        const sessions_by_week = [];
+        for (let d = 0; d <= 6; d++) {
+            const label = moment(startOfWeek).add(d, 'days').format(weekLabel);
+            const currentDayThisWeek = selected_week_days.filter(k => moment(k, dayFormat).weekday() === d)[0];
+            if (!currentDayThisWeek) {
+                sessions_by_week.push({
+                    label,
+                    count: 0
+                });
+            } else {
+                sessions_by_week.push({
+                    label,
+                    count: Object.keys((sessions_log.sessions_by_day ||  {})[currentDayThisWeek][guid ? 'groups' : 'sessions'] || {}).length
+                });
+            }
+        }
+
+        // by month
+
+        const startOfMonth = moment(selected_date).startOf('month');
+        const endOfMonth = moment(selected_date).endOf('month');
+        const numOfDaysInMonth = moment(selected_date).daysInMonth();
+
+        const selected_month_days = Object.keys(sessions_log.sessions_by_day ||  {}).sort()
+        // filter 'by days' sessions using the selected day
+        .filter(k => moment(k, dayFormat).isBetween(startOfMonth, endOfMonth, null, '[]'));
+
+
+        const sessions_by_month = [];
+        for (let d = 1; d <= numOfDaysInMonth; d++) {
+            const label = moment(startOfMonth).add(d - 1, 'days').format(monthLabel);
+            const currentDayThisMonth = selected_month_days.filter(k => moment(k, dayFormat).date() === d)[0];
+            
+            if (!currentDayThisMonth) {
+                sessions_by_month.push({
+                    label,
+                    count: 0
+                });
+            } else {
+                sessions_by_month.push({
+                    label,
+                    count: Object.keys((sessions_log.sessions_by_day ||  {})[currentDayThisMonth][guid ? 'groups' : 'sessions'] || {}).length
+                });
+            }
+        }
+
+
+        // by year
+
+        const startOfYear = moment(selected_date).startOf('year');
+        const endOfYear = moment(selected_date).endOf('year');
+
+        const selected_year_months = Object.keys(sessions_log.sessions_by_month ||  {}).sort()
+        // filter 'by days' sessions using the selected day
+        .filter(k => moment(k, monthFormat).isBetween(startOfYear, endOfYear, null, '[]'));
+
+        const sessions_by_year = [];
+        for (let m = 0; m <= 11; m++) {
+            const label = moment(startOfYear).add(m, 'months').format(yearLabel);
+            const currentMonthThisYear = selected_year_months.filter(k => moment(k, monthFormat).month() === m)[0];
+            if (!currentMonthThisYear) {
+                sessions_by_year.push({
+                    label,
+                    count: 0
+                });
+            } else {
+                sessions_by_year.push({
+                    label,
+                    count: Object.keys((sessions_log.sessions_by_month ||  {})[currentMonthThisYear][guid ? 'groups' : 'sessions'] || {}).length
+                });
+            }
+        }
+
+        //daily active users
+        const total_days = Object.keys(sessions_log.sessions_by_day ||  {}).length;
+        const total_unique_sessions = Object.keys(sessions_log.sessions_by_day ||  {})
+                            .map(k => Object.keys((sessions_log.sessions_by_day ||  {})[k].sessions).length)
+                            .reduce((prev, cur) => prev + cur, 0);
+                            
+        const daily_active_users = Math.round(total_unique_sessions / total_days);
+
+
+        //active groups
+        const schoolGroups = selectedSchool.groups || {};
+        
+        //count groups with at least one member and count members from groups of selected school
+        let active_groups = 0, schoolMemberCount = 0;
+        Object.keys(schoolGroups).forEach(k => {
+            const memberCount = Object.keys(schoolGroups[k].members || {}).length;
+            if (memberCount) {
+                active_groups++;
+                schoolMemberCount += memberCount;
+            }
+        });
+
+        const avg_group_size = Math.round(active_groups === 0 ? 0 : schoolMemberCount / active_groups);
+
+
+        //total number of sessions
+        const total_number_sessions = sessions_log.total_sessions;
+        const avg_session_duration = Math.round(sessions_log.total_seconds / total_number_sessions);
+        
+        res.status(REQUESTSUCCESSFUL).send({
+            unique_users,
+            percent_school_population,
+            daily_active_users,
+            total_number_sessions,
+            avg_session_duration,
+            active_groups,
+            avg_group_size,
+            avg_hosted_events_by_group,
+
+            grad_undergrad_chart,
+            grad_year_chart,
+            self_reported_interests_chart,
+            fields_of_study_chart,
+            sessions_by_day,
+            sessions_by_week,
+            sessions_by_month,
+            sessions_by_year
         });
     });
 });
 
+// wrap commented code in function to be able to collapse it
+function commentedCode() {
+    
+    // app.get('/api/get_dashboard_data', function(req, res) {
+    //     // var token = req.query.token;
+
+    //     // var auth = authenticateToken(token);
+    //     // if(!auth.admin){
+    //     //     res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+    //     //     return;
+    //     // }
+
+    //     // incrementTokenCalls(token);
+
+    //     var school_identifier = req.query['school_identifier'];
+
+    //     if (!school_identifier) school_identifier = 'duke'; //for tests only
+
+    //     if(!school_identifier){
+    //         res.status(REQUESTBAD).send("invalid parameters: no school identifier");
+    //         return;
+    //     }
+
+    //     var dt = new Date().getTime();
+    //     databaseref.child('schools').child(school_identifier).once('value').then(function(snapshot) {
+    //         var selectedSchool = snapshot.val();
+    //         var schoolGroups = selectedSchool.groups || {};
+    //         databaseref.child('users').once('value').then(function(snapshot) {
+    //             var userCount = snapshot.numChildren();
+    //             //count users from selected school
+    //             var schoolUserCount = Object.keys(selectedSchool.users || {}).length;
+    //             //Percentage of users who belongs to the selected school
+    //             var percentSchoolPopulation = (schoolUserCount / userCount * 100).toFixed(2);
+    //             //count groups with at least one member and count members from groups of selected school
+    //             var schoolActiveGroups = 0, schoolMemberCount = 0;
+    //             for (var k in schoolGroups) {
+    //                 if (schoolGroups.hasOwnProperty(k)) {
+    //                     var memberCount = Object.keys(schoolGroups[k].members || {}).length;
+    //                     if (memberCount) {
+    //                         schoolActiveGroups++;
+    //                         schoolMemberCount += memberCount;
+    //                     }
+    //                 }
+    //             }
+                
+    //             //avg grup size
+    //             var avgGroupSize = (schoolActiveGroups === 0 ? 0 : schoolMemberCount / schoolActiveGroups).toFixed(2);
+                
+    //             res.status(REQUESTSUCCESSFUL).send({
+    //                 unique_users: userCount,
+    //                 percent_school_population: percentSchoolPopulation,
+    //                 //active_users
+    //                 active_groups: schoolActiveGroups,
+    //                 //avg_hosted_events_by_groups
+    //                 avg_group_size: avgGroupSize
+    //             });
+    //         });
+    //     });
+    // });
+    // app.get('/api/clear_session_history', function(req, res) {
+    //     var sessionsLog = databaseref.child('sessions_log');
+    //     sessionsLog.set({});
+    //     sessionsLog.once('value').then(s => res.json(s.val()));
+    // });
+    // app.get('/api/create_session_history', function(req, res) {
+    //     // var token = req.query.token;
+
+    //     // var auth = authenticateToken(token);
+    //     // if(!auth.admin){
+    //     //     res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+    //     //     return;
+    //     // }
+
+    //     // incrementTokenCalls(token);
+
+    //     // logUserSession(111);
+    //     // res.send(200);
+    //     // var sessionsLog = databaseref.child('sessions_log');
+    //     // sessionsLog.set({});
+    //     // sessionsLog.once('value').then(s => res.json(s.val()));
+
+
+    //     const range = function(min, max) {
+    //         return Math.floor(Math.random() * (max - min + 1)) + min;
+    //     };
+
+    //     var promises = [];
+
+    //     for (var i = 0; i < 1; i++) {
+    //         var uid = range(1, 500);
+    //         var guid = range(-500, 500);
+    //         if (guid <= 0) guid = null;
+    //         var startDate = moment().subtract(6, 'months');
+    //         var randDays = range(0, startDate.diff(moment(), 'days'));
+    //         var hourNow = +moment().format("HH") * -1;
+    //         var randHours = range(hourNow, 24 - hourNow);
+    //         startDate.add(randDays, 'days');
+    //         startDate.add(randHours, 'hours');
+    //         var duration = range(15, 3600 * 3);
+    //         var endDate = moment(startDate).add(duration, 'seconds');
+    //         promises.push(logUserSession(uid, guid, startDate.toDate(), endDate.toDate()));
+    //     }
+
+
+    //     // Promise.each(promises, p => p)
+    //     promises[0].then(() => {
+    //         databaseref.child('sessions_log').once('value').then(s => res.json(s.val()));
+    //     });
+    // });
+    // app.get('/api/get_grad_undergrad_chart_data', function(req, res) {
+    //     // var token = req.query.token;
+
+    //     // var auth = authenticateToken(token);
+    //     // if(!auth.admin){
+    //     //     res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+    //     //     return;
+    //     // }
+
+    //     // incrementTokenCalls(token);
+
+    //     var guid, school_identifier = req.query['school_identifier'];
+    //     if (school_identifier)
+    //         guid = req.query['guid'];
+
+
+    //     var ref = databaseref.child('schools');
+    //     if (school_identifier)
+    //         ref = ref.child(school_identifier);
+
+    //     console.log(school_identifier, guid);
+
+    //     ref.once('value').then(function(snapshot) {
+    //         var data = snapshot.val();
+    //         var users = [];
+    //         if (school_identifier) {
+    //             //if a school is selected, get all it's users with academic_level set, filtering by group membership, when selected
+    //             var group = guid ? data.groups[guid] : {};
+    //             users = Object.keys(data.users).map(k => data.users[k]).filter(u => {
+    //                 if (!u.academic_level) return false;
+    //                 if (!guid) return true;
+    //                 return group.members && groups.members[u.user_id];
+    //             })
+    //         } else {
+    //             //if no schools are selected, just get all users from all schools with academic_level set
+    //             users = [].concat.apply([], Object.keys(data).map(k => {
+    //                 var users = data[k].users;
+    //                 return Object.keys(users).map(k => users[k]).filter(u => u.academic_level);
+    //             }));
+    //         }
+    //         var grad = 0, undergrad = 0;    
+    //         users.forEach(u => {
+    //             if (u.academic_level === 'grad')
+    //                 grad++;
+    //             else if (u.academic_level === 'undergrad')
+    //                 undergrad++;
+    //         });
+            
+    //         res.status(REQUESTSUCCESSFUL).send([grad, undergrad]);
+    //     });
+    // });
+
+    // app.get('/api/get_grad_year_chart_data', function(req, res) {
+    //     // var token = req.query.token;
+
+    //     // var auth = authenticateToken(token);
+    //     // if(!auth.admin){
+    //     //     res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+    //     //     return;
+    //     // }
+
+    //     // incrementTokenCalls(token);
+
+    //     var guid, school_identifier = req.query['school_identifier'];
+    //     if (school_identifier)
+    //         guid = req.query['guid'];
+
+
+    //     var ref = databaseref.child('schools');
+    //     if (school_identifier)
+    //         ref = ref.child(school_identifier);
+
+    //     ref.once('value').then(function(snapshot) {
+    //         var data = snapshot.val();
+    //         var users = [];
+    //         if (school_identifier) {
+    //             //if a school is selected, get all it's users with graduation_year set, filtering by group membership, when selected
+    //             var group = guid ? data.groups[guid] : {};
+    //             users = Object.keys(data.users).map(k => data.users[k]).filter(u => {
+    //                 if (!u.graduation_year) return false;
+    //                 if (!guid) return true;
+    //                 return group.members && groups.members[u.user_id];
+    //             })
+    //         } else {
+    //             //if no schools are selected, just get all users from all schools with graduation_year set
+    //             users = [].concat.apply([], Object.keys(data).map(k => {
+    //                 var users = data[k].users;
+    //                 return Object.keys(users).map(k => users[k]).filter(u => u.graduation_year);
+    //             }));
+    //         }
+    //         var countGradYear = _.countBy(users, 'graduation_year');
+    //         var years = Object.keys(countGradYear).sort();
+            
+    //         res.status(REQUESTSUCCESSFUL).send({
+    //             years: years,
+    //             data: years.map(y => countGradYear[y])
+    //         });
+    //     });
+    // });
+
+    // app.get('/api/get_self_reported_interests_chart_data', function(req, res) {
+    //     // var token = req.query.token;
+
+    //     // var auth = authenticateToken(token);
+    //     // if(!auth.admin){
+    //     //     res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+    //     //     return;
+    //     // }
+
+    //     // incrementTokenCalls(token);
+
+    //     var guid, school_identifier = req.query['school_identifier'];
+    //     if (school_identifier)
+    //         guid = req.query['guid'];
+
+
+    //     var ref = databaseref.child('schools');
+    //     if (school_identifier)
+    //         ref = ref.child(school_identifier);
+
+    //     ref.once('value').then(function(snapshot) {
+    //         var data = snapshot.val();
+    //         var interests = [];
+    //         if (school_identifier) {
+    //             //if a school is selected, get all it's users' interests
+    //             var group = guid ? data.groups[guid] : {};
+    //             interests = _.flatten(Object.keys(data.users).map(k => data.users[k]).filter(u => {
+    //                 if (!guid) return true;
+    //                 return group.members && groups.members[u.user_id];
+    //             }).map(u => u.interests || []));
+    //         } else {
+    //             //if no schools are selected, just get all users' interests from all schools
+    //             interests = _.flatten(Object.keys(data).map(k => {
+    //                 var users = data[k].users;
+    //                 return Object.keys(users).map(k => users[k].interests || []);
+    //             }));
+    //         }
+
+    //         var countInterests = _.countBy(interests);
+    //         interests = _.uniq(interests.sort(), true);
+            
+    //         res.status(REQUESTSUCCESSFUL).send({
+    //             interests: interests,
+    //             data: interests.map(i => countInterests[i])
+    //         });
+    //     });
+    // });
+
+    // app.get('/api/get_fields_of_study_chart_data', function(req, res) {
+    //     // var token = req.query.token;
+
+    //     // var auth = authenticateToken(token);
+    //     // if(!auth.admin){
+    //     //     res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+    //     //     return;
+    //     // }
+
+    //     // incrementTokenCalls(token);
+
+    //     var guid, school_identifier = req.query['school_identifier'];
+    //     if (school_identifier)
+    //         guid = req.query['guid'];
+
+
+    //     var ref = databaseref.child('schools');
+    //     if (school_identifier)
+    //         ref = ref.child(school_identifier);
+
+    //     ref.once('value').then(function(snapshot) {
+    //         var data = snapshot.val();
+    //         var majors = [];
+    //         if (school_identifier) {
+    //             //if a school is selected, get all it's users' majors
+    //             var group = guid ? data.groups[guid] : {};
+    //             majors = _.flatten(Object.keys(data.users).map(k => data.users[k]).filter(u => {
+    //                 if (!u.major) return false;
+    //                 if (!guid) return true;
+    //                 return group.members && groups.members[u.user_id];
+    //             }).map(u => u.major));
+    //         } else {
+    //             //if no schools are selected, just get all users' majors from all schools
+    //             majors = _.flatten(Object.keys(data).map(k => {
+    //                 var users = data[k].users;
+    //                 if (!users) return [];
+    //                 return Object.keys(users).map(k => users[k].major).filter(m => m);
+    //             }));
+    //         }
+
+    //         const majorMaps = {
+    //             'cs': 'computer science',
+    //             'compsci': 'computer science',
+    //             'econ': 'economics',
+    //             'gh': 'global health',
+    //             'neuro': 'neuroscience',
+    //             'public policy studies': 'public policy',
+    //             'statz': 'statistics',
+    //             'tbd': 'undecided'
+    //         };
+    //         majors = _.flatten(majors.map(m => m.toLowerCase().trim().split(/(?:[+,\/]|and)+/).map(s => s.trim())));
+    //         majors = majors.map(m => (majorMaps[m] || m).split(' ').map(w => w.split('').map((l, i) => i === 0 ? l.toUpperCase() : l).join('')).join(' '));
+    //         var countMajors = _.countBy(majors);
+
+            
+    //         return res.status(REQUESTSUCCESSFUL).send(_.chain(countMajors).map((count, major) => Object({
+    //             word: major,
+    //             count: count
+    //         })).sortBy('count').value().map((obj, i) => Object({
+    //             word: obj.word,
+    //             count: i + 1
+    //         })));
+            
+    //         // return res.status(REQUESTSUCCESSFUL).send(_.chain(countMajors).map((count, major) => Object({
+    //         //     word: major,
+    //         //     count: count
+    //         // })).value());
+
+    //         // majors = _.chain(countMajors).map((count, major) => Object({
+    //         //     major: major,
+    //         //     count: count
+    //         // })).sortBy('count').reverse().value().slice(0, 10).map(o => o.major).sort();
+
+    //         // majors = _.uniq(majors.sort(), true);
+            
+    //         // res.status(REQUESTSUCCESSFUL).send({
+    //         //     majors: majors,
+    //         //     data: majors.map(i => countMajors[i])
+    //         // });
+    //     });
+    // });
+
+
+    // app.get('/api/delete_user', function(req, res) {
+    //     var sid = req.query['sid'];
+    //     var uid = req.query['uid'];
+    //     databaseref.child('schools').child(sid).child('users').child(uid).remove();
+    //     res.json(3);
+    // });
+    // app.get('/api/read_all_data', function(req, res) {
+    //     databaseref.child('users').once('value').then(function(snapshot) {
+    //         var users = snapshot.val();
+    //         console.log(Object.keys(users).filter(k => k.indexOf('test123') > -1).map(k => users[k]));
+    //     });
+    //     res.json(2);
+    //     return;
+    //     var fs = require('fs');
+    //     // var data = fs.readFileSync('all.json');
+    //     // databaseref.child('/').set(JSON.parse(data));
+    //     // res.json(2);
+    //     databaseref.child('users').once('value').then(function(s) {
+    //         var users = s.val();
+    //         fs.writeFileSync("users.json", JSON.stringify(users));
+    //         // console.log(Object.keys(users).map(k => users[k]).filter(u => u.school_identifier === 'duke').length);
+    //         res.json(1);
+    //     });
+    // });
+
+    // app.get('/api/fill_root_users_data', function(req, res) {
+    //     var allUsers = {};
+    //     databaseref.child('schools').once('value').then(function(snapshot) {
+    //         var schools = snapshot.val();
+
+    //         for (var sid in schools) {
+    //             if (schools.hasOwnProperty(sid)) {
+    //                 var users = schools[sid].users || {};
+    //                 for (var uid in users) {
+    //                     if (users.hasOwnProperty(uid)) {
+    //                         var user = users[uid];
+    //                         if (allUsers[uid]) {
+    //                             console.log(allUsers[uid]);
+    //                         }
+    //                         allUsers[uid] = {
+    //                             user_id: uid,
+    //                             name: user.first_name + ' ' + user.last_name,
+    //                             school_identifier: sid
+    //                         };
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //         // console.log(Object.keys(allUsers).length);
+    //         // databaseref.child('users').set(allUsers);
+    //         res.json(1);
+    //     });
+    // });
+}
 
 //***************HELPER FUNCTIONS*************//
 
