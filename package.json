@@ -7,15 +7,15 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "bluebird": "^3.4.7",
+    "bluebird": "^3.5.0",
     "body-parser": "*",
     "express": "*",
     "express-jwt-session": "^1.0.1",
     "firebase": "*",
     "firebase-admin": "*",
     "fs": "*",
-    "moment": "*",
-    "moment-timezone": "^0.5.11",
+    "moment": "^2.18.1",
+    "moment-timezone": "^0.5.13",
     "nodemailer": "*",
     "randomcolor": "*",
     "request": "*",

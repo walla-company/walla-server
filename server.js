@@ -98,26 +98,22 @@ var apikeytemplate;
 
 // Initialize Firebase
 
-var useLocal = true;
-
-if (!useLocal) {
-    console.log("RUNNING IN PRODUCTION ENV");
-}
+var useLocal = false;
 
 // var config = ;
 var config = useLocal ? {
-    apiKey: "AIzaSyBuYG5jxqySNrrLdJSU0hAX2S3GAs-zrUo",
-    authDomain: "walla-server-test.firebaseapp.com",
-    databaseURL: "https://walla-server-test.firebaseio.com",
-    storageBucket: "walla-server-test.appspot.com",
-    messagingSenderId: "40193027451"
-} : {
-    apiKey: "AIzaSyDly8Ewgiyhb14hHbHiSnLcu6zUOvEbuF0",
-    authDomain: "walla-launch.firebaseapp.com",
-    databaseURL: "https://walla-launch.firebaseio.com",
-    storageBucket: "walla-launch.appspot.com",
-    messagingSenderId: "261500518113"
-};
+                            apiKey: "AIzaSyBuYG5jxqySNrrLdJSU0hAX2S3GAs-zrUo",
+                            authDomain: "walla-server-test.firebaseapp.com",
+                            databaseURL: "https://walla-server-test.firebaseio.com",
+                            storageBucket: "walla-server-test.appspot.com",
+                            messagingSenderId: "40193027451"
+                        } : {
+                            apiKey: "AIzaSyDly8Ewgiyhb14hHbHiSnLcu6zUOvEbuF0",
+                            authDomain: "walla-launch.firebaseapp.com",
+                            databaseURL: "https://walla-launch.firebaseio.com",
+                            storageBucket: "walla-launch.appspot.com",
+                            messagingSenderId: "261500518113"
+                        };
 
 
 // var defaultApp = admin.initializeApp();
@@ -155,33 +151,7 @@ function authenticateToken(token){
 
 //listener for allowed domains
 const ad = databaseref.child('app_settings/allowed_domains');
-ad.on('value', snapshot => {
-    domains = snapshot.val();
-
-    for (let sid in domains) {
-        var updateRootUsers = function(type) {
-            return function(snapshot) {
-                // console.log(type);
-                var user = snapshot.val();
-                if (!user.user_id) return;
-                var obj = {};
-                obj[user.user_id] = {
-                    user_id: user.user_id,
-                    school_identifier: sid,
-                    name: user.first_name + ' ' + user.last_name
-                };
-                // console.log(1, obj);
-                databaseref.child('users').update(obj);
-            }
-        };
-        if (domains.hasOwnProperty(sid)) {
-            var usersRef = databaseref.child('schools').child(sid).child('users');
-            usersRef.on('child_added', updateRootUsers('added'));
-            usersRef.on('child_changed', updateRootUsers('changed'));
-            usersRef.on('child_removed', snapshot => databaseref.child('users').child(snapshot.val().user_id).remove());
-        }
-    }
-});
+ad.on('value', snapshot => domains = snapshot.val());
 
 //listener for minimum version
 const mv = databaseref.child('app_settings/min_version');
@@ -653,13 +623,27 @@ app.post('/api/add_activity', function(req, res){
     });
     */
     var reply = {};
+    
+    var fake_going_uids = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
+    var fake_interested_uids = ['j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r'];
+    
+    var fake_going = getRandomInt(2, 5);
+    var fake_interested = getRandomInt(2, 5);
+  
+    for (var i=0; i<= fake_going; i++) {
+      reply[fake_going_uids[i]] = 'going';
+    }
+  
+    for (var i=0; i<= fake_interested; i++) {
+      reply[fake_interested_uids[i]] = 'interested';
+    }
+    
     reply[host] = "going";
 
     var activity = {
       title: title,
       start_time: start_time * 1.0,
       end_time: end_time * 1.0,
-      timePosted: current_time,
       location: {
         name: location_name,
         address: location_address,
@@ -708,6 +692,12 @@ app.post('/api/add_activity', function(req, res){
     
     res.status(REQUESTSUCCESSFUL).send('activity posted: ' + activity['location']['lat']);
 });
+
+function getRandomInt(min, max) {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min)) + min;
+}
 
 app.post('/api/interested', function(req, res){
     var token = req.query.token;
@@ -983,8 +973,6 @@ app.get('/api/get_activities', function(req, res){
 
     var school_identifier = req.query.school_identifier;
     var uid = req.query.uid;
-    var filter = req.query.filter;
-    if (filter) filter = JSON.parse(filter);
 
     if(!school_identifier){
         res.status(REQUESTBAD).send("invalid parameters: no school identifier");
@@ -1016,9 +1004,9 @@ app.get('/api/get_activities', function(req, res){
     incrementTokenCalls(token);
 
     console.log('timequery: ' + timequery);
+
     databaseref.child('schools/' + school_identifier + '/activities/').orderByChild('start_time').startAt(timequery)
         .once('value').then(function(snapshot){
-            console.log('snapshot', snapshot.val());
             if(snapshot.val()) {
 
                 var activities = [];
@@ -1039,6 +1027,7 @@ app.get('/api/get_activities', function(req, res){
                             activities.push(snapshot.val()[key]);
                         }
                     });
+
                     sortAndSendActivities(activities, res);
                     
                 }
@@ -1155,11 +1144,11 @@ app.post('/api/invite_group', function(req, res){
 });
 
 function sortAndSendActivities(activities, res) {
-    console.log('activities: ' + activities);
+  console.log('activities: ' + activities);
 
-    activities.sort(compareActivities);
+  activities.sort(compareActivities);
 
-    res.status(REQUESTSUCCESSFUL).send(activities);
+  res.status(REQUESTSUCCESSFUL).send(activities);
 }
 
 function compareActivities(a1, a2) {
@@ -1449,15 +1438,15 @@ function inviteGroup(guid, school_identifier, auid, activity_title) {
 //***************USER HANDLERS*************//
 
 app.post('/api/add_user', function(req, res){
-//   var token = req.query.token;
+  var token = req.query.token;
 
-//   var auth = authenticateToken(token);
-//   if(!auth.admin && !auth.write){
-//        res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
-//       return;
-//   }
+  var auth = authenticateToken(token);
+  if(!auth.admin && !auth.write){
+       res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+      return;
+  }
 
-//   incrementTokenCalls(token);
+  incrementTokenCalls(token);
 
   console.log(JSON.stringify(req.body));
   
@@ -2727,15 +2716,20 @@ app.get('/api/get_search_groups_array', function(req, res){
 
 });
 
+
 function filterActivities(activities, filter, school_identifier) {
     return new Promise(resolve => {
         if (!activities || !filter) return resolve(activities);
         
         databaseref.child("schools").child(school_identifier).child("flagged_activities").once('value').then(snapshot => {
             const flagged_activities = snapshot.val() || {};
-            console.log(flagged_activities);
             resolve(activities.filter(actv => {
-                if (!actv.activity_id) return false;
+                if (!actv.activity_id || actv.deleted) return false;
+
+                const flags = flagged_activities[actv.activity_id];
+                if (flags && Object.keys(flags).filter(k => flags[k]).length) {
+                    actv.flagged = true;
+                }
 
                 return !Object.keys(filter).some(field => {
                     let filterValue = filter[field];
@@ -2748,7 +2742,7 @@ function filterActivities(activities, filter, school_identifier) {
 
                     if (field === "flagged") {
                         const flags = flagged_activities[actv.activity_id];
-                        return filterValue && (!flags || !Object.keys(flags).filter(k => flags[k]).length);
+                        return filterValue ^ !actv.flagged;
                     } else if (field === 'start_time') {
                         if (!filterValue || !actvValue) return false;
                         return !(actvValue >= filterValue);
@@ -2852,61 +2846,6 @@ app.get('/api/get_users', function(req, res){
     filterUsers(users, filter, school_identifier).then(users => {
         res.status(REQUESTSUCCESSFUL).send(users || {});
     });
-    // if (users) {
-    //     if (filter) {
-    //         let groupMembersId;
-
-    //         return (
-    //             filter.group ? cb => {
-    //                 databaseref.child('schools').child(school_identifier).child('groups').child(filter.group).once('value').then(snapshot => {
-    //                     const group = snapshot.val();
-    //                     if (group && group.members) {
-    //                         groupMembersId = Object.keys(group.members);
-    //                         if (!groupMembersId.length) groupMembersId = null;
-    //                     }
-    //                     cb();
-    //                 });
-    //             } : cb => cb()
-    //         )(() => {
-    //             const tmpUsers = {};
-    //             Object.keys(users).forEach(k => {
-    //                 const u = users[k];
-    //                 if (!u.user_id) return;
-
-    //                 if (!Object.keys(filter).some(field => {
-    //                     let filterValue = filter[field];
-
-    //                     if (field === 'group') {
-    //                         return !groupMembersId || !groupMembersId.includes(u.user_id);
-    //                     }
-
-    //                     let userValue = u[field];
-    //                     if (!filterValue) return false;
-    //                     filterValue = filterValue.toString().toLowerCase();
-    //                     if (userValue) {
-    //                         userValue = userValue.toString().toLowerCase();
-    //                     } else userValue = "";
-    //                     if (filterValue[0] === '=') {
-    //                         filterValue = filterValue.substring(1);
-    //                         if (!filterValue) return false;
-    //                         return filterValue != userValue;
-    //                     } else {
-    //                         return userValue.indexOf(filterValue) === -1;
-    //                     }
-    //                 })) {
-    //                     tmpUsers[k] = u;
-    //                 }
-
-    //             });
-
-    //             res.status(REQUESTSUCCESSFUL).send(tmpUsers);
-
-    //         });
-    //     }
-    //     res.status(REQUESTSUCCESSFUL).send(users);
-    // }
-    // else
-    //     res.status(REQUESTSUCCESSFUL).send({});
 }).catch(function(error){
     res.status(REQUESTBAD).send(error);
     console.log(error);
@@ -5770,6 +5709,7 @@ function commentedCode() {
     //     });
     // });
 }
+
 
 //***************HELPER FUNCTIONS*************//
 
