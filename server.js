@@ -98,7 +98,7 @@ var apikeytemplate;
 
 // Initialize Firebase
 
-var useLocal = false;
+var useLocal = true;
 
 // var config = ;
 var config = useLocal ? {
