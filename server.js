@@ -151,7 +151,7 @@ function authenticateToken(token){
 
 //listener for allowed domains
 const ad = databaseref.child('app_settings/allowed_domains');
-ad.on('value', snapshot => domains = snapshot.val()); 
+ad.on('value', snapshot => domains = snapshot.val());
 
 //listener for minimum version
 const mv = databaseref.child('app_settings/min_version');
