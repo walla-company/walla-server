@@ -80,7 +80,13 @@ var transporter = nodemailer.createTransport({
 });
 
 //all the stored variables
+//for american underground
+var au = {
+    domain: "au.edu",
+    full_name: "American Underground",
+};
 var domains = {};
+domains.au = au;
 var minversion = {};
 
 var readpriv = [];
