@@ -449,8 +449,8 @@ app.get('/api/domains', function(req, res){
         return;
     }
     
-    if(domain.au.domain)
-        domain.au.domain = "au.edu"
+    if(domains.au.domain)
+        domains.au.domain = "au.edu"
 
     res.send(domains)
 
