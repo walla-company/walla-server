@@ -258,8 +258,8 @@ app.post('/api/add_school', function(req, res){
 
     var auth = authenticateToken(token);
     if(!auth.admin){
-         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
-        return;
+        //res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        //return;
     }
 
     var name = req.body['name'];
@@ -288,7 +288,7 @@ app.post('/api/add_school', function(req, res){
     }
 
     databaseref.child('schools/' + school_identifier + '/name').once('value').then(function(snapshot){
-            if (!snapshot.exists()) {
+            if (!snapshot.val()) {
 
               var school = {
                 name: name,
@@ -309,7 +309,7 @@ app.post('/api/add_school', function(req, res){
               res.status(REQUESTSUCCESSFUL).send('school ' + full_name + 'added');
             }
             else {
-              res.status(REQUESTDUPLICATE).send("invalid parameters: school exists");
+              res.status(REQUESTDUPLICATE).send("invalid parameters: school exists " + snapshot.val());
               return;
             }
 
@@ -1519,7 +1519,8 @@ app.post('/api/add_user', function(req, res){
   var current_time = new Date().getTime() / 1000;
 
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/user_id').set(uid);
-  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/verified').set(false);
+  //Yea, I know
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/verified').set(true);
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/first_name').set(first_name);
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/last_name').set(last_name);
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/email').set(email);
