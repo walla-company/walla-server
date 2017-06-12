@@ -80,13 +80,7 @@ var transporter = nodemailer.createTransport({
 });
 
 //all the stored variables
-//for american underground
-var au = {
-    domain: "au.edu",
-    full_name: "American Underground",
-};
 var domains = {};
-domains.au = au;
 var minversion = {};
 
 var readpriv = [];
@@ -454,6 +448,9 @@ app.get('/api/domains', function(req, res){
          res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
         return;
     }
+    
+    if(domain.au.domain)
+        domain.au.domain = "au.edu"
 
     res.send(domains)
 
