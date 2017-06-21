@@ -3656,7 +3656,7 @@ function sendVerificationEmail(email, uid, domain, res){
 
                 var verifyurl = WEBSITE + '/api/verify?domain=' + domain + '&uid=' + uid + '&token=' + '34c27dF4ad7X72' + "&hash=" + hash;
                 var mailOptions = {
-                    from: '"Walla" <wallanoreply@aol.com>', // sender address
+                    from: '"Walla" <noreply@wallasquad.com>', // sender address
                     to: email, // list of receivers
                     subject: 'Verify email', // Subject line
                     html: emailverificationtemplate.replace(/verify-url-here/, verifyurl)
