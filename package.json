@@ -1,18 +1,23 @@
 {
   "name": "walla-server",
   "version": "1.0.0",
-  "description": "",
-  "main": "server.js",
+  "description": "Find Your Squad",
+  "main": "src/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "babel src -d lib"
   },
   "dependencies": {
+    "babe": "^0.0.1",
+    "babel": "^6.23.0",
     "bluebird": "^3.5.0",
     "body-parser": "*",
     "express": "*",
     "express-jwt-session": "^1.0.1",
     "firebase": "*",
     "firebase-admin": "*",
+    "flow": "^0.2.3",
     "fs": "*",
     "moment": "^2.18.1",
     "moment-timezone": "^0.5.13",
@@ -23,6 +28,13 @@
     "underscore": "^1.8.3"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC"
+  "author": "Anesu Mafuvadze <mafuvadzeanesu@gmail.com>",
+  "license": "ISC",
+  "devDependencies": {
+    "babel-cli": "^6.24.1",
+    "babel-preset-env": "^1.5.2",
+    "babel-preset-flow": "^6.23.0",
+    "flow-bin": "^0.48.0"
+  },
+  "repository": "https://github.com/walla-company/walla-server.git"
 }
