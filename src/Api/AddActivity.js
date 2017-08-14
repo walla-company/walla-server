@@ -5,6 +5,7 @@ const databaseref = require('../shared/Firebase');
 const authentication = require('../shared/Authentication');
 const result = require('../shared/RequestResult');
 const tokenManager = require('../shared/TokenManager');
+const pointsManager = require('../shared/PointsManager');
 
 app.post('/api/add_activity', function (req, res) {
     var token = req.query.token;
@@ -151,12 +152,13 @@ app.post('/api/add_activity', function (req, res) {
     */
     var reply = {};
 
-    var fake_interested_uids = ['j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r'];
-    var fake_interested = getRandomInt(2, 5);
+    // fake data. uncomment to have fake data on new activities
+    // var fake_interested_uids = ['j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r'];
+    // var fake_interested = getRandomInt(2, 5);
 
-    for (var i = 0; i <= fake_interested; i++) {
-        reply[fake_interested_uids[i]] = 'interested';
-    }
+    // for (var i = 0; i <= fake_interested; i++) {
+    //     reply[fake_interested_uids[i]] = 'interested';
+    // }
 
     reply[host] = "going";
 
@@ -210,6 +212,7 @@ app.post('/api/add_activity', function (req, res) {
     });
     */
 
+    pointsManager.addPointsToUser('CreatedActivity', school_identifier, host, 5, 'User created activity id ' + auid, auid);
     res.status(result.requestsuccessful).send('activity posted: ' + activity['location']['lat']);
 });
 

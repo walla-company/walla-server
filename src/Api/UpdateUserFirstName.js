@@ -5,6 +5,7 @@ const databaseref = require('../shared/Firebase');
 const authentication = require('../shared/Authentication');
 const result = require('../shared/RequestResult');
 const tokenManager = require('../shared/TokenManager');
+const pointsManager = require('../shared/PointsManager');
 
 app.post('/api/update_user_first_name', function(req, res){
   var token = req.query.token;
@@ -48,6 +49,8 @@ app.post('/api/update_user_first_name', function(req, res){
           res.status(result.requestbad).send(error);
           console.log(error);
   });
+
+  pointsManager.addProfileCompletionPointsToUser(school_identifier, uid);
 
   res.status(result.requestsuccessful).send('first name updated');
 

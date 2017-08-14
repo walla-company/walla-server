@@ -64,26 +64,42 @@ app.get('/api/get_activity', function(req, res){
 });
 
 function userCanSeeEvent(uid, auid, school_identifier, res, activity) {  
+        const activityRef = databaseref.child('schools/' + school_identifier + '/activities/' + auid);
+        let newSeen = false;
+        const sendSuccess = () => {
+            activityRef.child('seen').transaction(seenObj => {
+                seenObj = seenObj || {};
+                newSeen = false;
+                if (!seenObj[uid]) {
+                    seenObj[uid] = new Date().getTime() / 1000;
+                    newSeen = true;
+                }
+                // always update last seen date
+                return seenObj;
+            }).then(() => {
+                console.log(newSeen);
+                return !newSeen ? null : activityRef.child('seen_count')
+                .transaction(seenCount => (seenCount || 0) + 1);
+            })
+            .then(() => activityRef.once('value'))
+            .then(snapshot => res.status(result.requestsuccessful).send(snapshot.val()));
+        };
+
         if (activity["public"]) {       
             console.log("Event public");
-            res.status(result.requestsuccessful).send(activity);
-            return;
+            return sendSuccess();
         }
         else if (activity["host"] == uid) {
                     
             console.log("Event private: user can see (host)");
-            res.status(result.requestsuccessful).send(activity);
-            
-            return;
+            return sendSuccess();
         }
                 
         for (var user_id in activity["invited_users"]) {
             if (user_id == uid) {
                 
                 console.log("Event private: user can see (invited user)");
-                res.status(result.requestsuccessful).send(activity);
-                
-                return;
+                return sendSuccess();
             }
         }
     
@@ -94,16 +110,12 @@ function userCanSeeEvent(uid, auid, school_identifier, res, activity) {
                     if (snapshot.val().hasOwnProperty(group_id)) {
                         
                         console.log("Event private: user can see (invited group)");
-                        res.status(result.requestsuccessful).send(activity);
-                        
-                        return;
+                        return sendSuccess();
                     }
                 }
                 
                 console.log("Event private: user cannot see");
-                res.status(result.requestsuccessful).send({});
-                
-                return;
+                return sendSuccess();
             }
         }).catch(function(error){
             res.status(result.requestbad).send(error);

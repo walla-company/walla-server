@@ -5,6 +5,7 @@ const databaseref = require('../shared/Firebase');
 const authentication = require('../shared/Authentication');
 const result = require('../shared/RequestResult');
 const tokenManager = require('../shared/TokenManager');
+const pointsManager = require('../shared/PointsManager');
 
 app.post('/api/update_user_description', function(req, res){
   var token = req.query.token;
@@ -37,6 +38,8 @@ app.post('/api/update_user_description', function(req, res){
   }
 
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/description').set(description);
+
+  pointsManager.addProfileCompletionPointsToUser(school_identifier, uid);
 
   res.status(result.requestsuccessful).send('user description updated');
 

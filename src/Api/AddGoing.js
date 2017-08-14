@@ -5,6 +5,7 @@ const databaseref = require('../shared/Firebase');
 const authentication = require('../shared/Authentication');
 const result = require('../shared/RequestResult');
 const tokenManager = require('../shared/TokenManager');
+const pointsManager = require('../shared/PointsManager');
 
 app.post('/api/going', function (req, res) {
     var token = req.query.token;
@@ -36,11 +37,20 @@ app.post('/api/going', function (req, res) {
         return;
     }
 
-    databaseref.child('schools/' + school_identifier + '/activities/' + auid + '/replies/' + uid).set("going");
+    const activityRef = databaseref.child('schools/' + school_identifier + '/activities/' + auid);
 
-    var currentTime = new Date().getTime() / 1000;
-    databaseref.child('schools/' + school_identifier + '/users/' + uid + '/calendar/' + auid).set(currentTime);
+    activityRef.child('host').once('value').then(snapshot => {
+        const host = snapshot.val();
 
-    res.status(result.requestsuccessful).send('Going changed');
+        activityRef.child('replies/' + uid).set("going");
+
+        var currentTime = new Date().getTime() / 1000;
+        databaseref.child('schools/' + school_identifier + '/users/' + uid + '/calendar/' + auid).set(currentTime);
+
+        pointsManager.addPointsToUser('AttendToActivity', school_identifier, uid, 1, 'User is attending to activity ID ' + auid, auid);
+        pointsManager.addPointsToUser('ActivityAttended', school_identifier, host, 1, 'User\'s activity ID ' + auid + ' was attended by someone', auid);
+
+        res.status(result.requestsuccessful).send('Going changed');
+    });
 
 });
