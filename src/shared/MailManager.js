@@ -17,7 +17,7 @@ var transporter = nodemailer.createTransport({
     service: 'Aol',
     auth: {
         user: 'wallanoreply@aol.com',
-        pass: 'graysonisthegoat'
+        pass: 'graysonisthegoat' 
     }
 });
 
