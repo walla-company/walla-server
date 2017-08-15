@@ -1,7 +1,7 @@
 const firebase = require('firebase');
 const admin = require('firebase-admin');
 
-const useLocal = true;
+const useLocal = false;
 
 const config = useLocal ? {
     apiKey: "AIzaSyBuYG5jxqySNrrLdJSU0hAX2S3GAs-zrUo",
