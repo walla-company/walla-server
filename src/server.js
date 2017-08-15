@@ -60,7 +60,7 @@ require('./Api/UpdateUserDescription');
 require('./Api/UpdateUserProfileImageUrl');
 require('./Api/UpdateUserLastLogon');
 require('./Api/IsUserIntroComplete');
-require('./Api/IsUserSuspended');
+require('./Api/isUserSuspended');
 
 /**
  * Groups
