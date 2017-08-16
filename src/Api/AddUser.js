@@ -65,7 +65,7 @@ app.post('/api/add_user', function(req, res){
   var current_time = new Date().getTime() / 1000;
 
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/user_id').set(uid);
-  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/verified').set(true);
+  databaseref.child('schools/' + school_identifier + '/users/' + uid + '/verified').set(false);
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/first_name').set(first_name);
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/last_name').set(last_name);
   databaseref.child('schools/' + school_identifier + '/users/' + uid + '/email').set(email);
