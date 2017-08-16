@@ -7,6 +7,12 @@ const result = require('../shared/RequestResult');
 const tokenManager = require('../shared/TokenManager');
 const pointsManager = require('../shared/PointsManager');
 
+// app.get('/api/get_all', function (req, res) {
+//     databaseref.once('value').then(snapshot => {
+//         require('fs').writeFileSync(require('path').join(__dirname, 'test.json'), JSON.stringify(snapshot.val()));
+//     });
+// });
+
 app.post('/api/add_activity', function (req, res) {
     var token = req.query.token;
 

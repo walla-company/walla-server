@@ -6,10 +6,6 @@ const authentication = require('../shared/Authentication');
 const result = require('../shared/RequestResult');
 const tokenManager = require('../shared/TokenManager');
 const mailManager = require('../shared/MailManager');
-var TokenGenerator = require( 'token-generator' )({
-        salt: 'haldiuvblaue9ufai3br8uya9-hv84irqe8ty',
-        timestampMap: 'N72md4XaF8',
-});
 
 app.post('/api/request_token', function (req, res) {
     var token = req.query.token;
@@ -54,7 +50,7 @@ app.post('/api/request_token', function (req, res) {
 
     tokenManager.incrementTokenCalls(token);
 
-    var token = TokenGenerator.generate();
+    var token = tokenManager.TokenGenerator.generate();
 
     var authobj = {};
     authobj[token] = {

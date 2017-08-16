@@ -37,3 +37,23 @@ app.get('/api/get_suggested_users', function(req, res){
 
 
 });
+
+function sortAndSendUsers(users, res){
+    var keyArr = Object.keys(users);
+    shuffle(keyArr);
+
+    var suggestedUsers = []; //top ten groups to be returned to the user
+
+    var sml = keyArr.length > 10 ? 10 : keyArr.length;
+    for(var i = 0; i < sml; i++){
+        suggestedUsers.push(users[keyArr[i]]);
+    }
+
+    res.status(result.requestsuccessful).send(suggestedUsers);
+
+}
+
+function shuffle(o){ //v1.0
+    for(var j, x, i = o.length; i; j = parseInt(Math.random() * i), x = o[--i], o[i] = o[j], o[j] = x);
+    return o;
+};

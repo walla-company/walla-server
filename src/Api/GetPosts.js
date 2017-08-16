@@ -27,7 +27,7 @@ app.get('/api/get_activities', function (req, res) {
         return;
     }
 
-    const timequery = (moment().utcOffset("-04:00").startOf('day').subtract(120, 'day') * 1.0) / 1000;
+    const timequery = (moment().utcOffset("-04:00").startOf('day') * 1.0) / 1000;
     tokenManager.incrementTokenCalls(token);
 
     databaseref.child('schools/' + school_identifier + '/activities/').orderByChild('start_time').startAt(timequery)

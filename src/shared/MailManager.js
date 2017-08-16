@@ -1,11 +1,13 @@
 // @flow
-
+const xoauth2 = require('xoauth2');
 const app = require('../shared/Express');
 const databaseref = require('../shared/Firebase');
 const authentication = require('../shared/Authentication');
 const result = require('../shared/RequestResult');
 const tokenManager = require('../shared/TokenManager');
 const nodemailer = require('nodemailer');
+
+const WEBSITE = 'https://walla-server.herokuapp.com';
 
 var apikeytemplate;
 
@@ -20,6 +22,35 @@ var transporter = nodemailer.createTransport({
         pass: 'graysonisthegoat' 
     }
 });
+
+var transporter2 = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        xoauth2: xoauth2.createXOAuth2Generator({
+            user: 'judy@wallasquad.com',
+            clientId: '569447296968-13dk1vkqeo22bs3o145n74bbm62cs30r.apps.googleusercontent.com',
+            clientSecret: 'spYxPuyBJ1JzWD4fWpBzcQKF',
+            refreshToken: '1/PPP3SfpgKtmgofm1fNZd4r0lh77FCYhKdS4V34h3qCQ',
+            accessToken: 'ya29.GluoBHG_ynGeKfJ8iyoP7HBQ9S9C8TG5Ey9yng7u5gL8M-ehXoqH-9FBS_YAicvb23_ACa1ZTiqUm9xpOFc6RWavcKu9Nsx1wI49oPTDfEVRCYvnzaLBTE8pbHUd'
+        })
+    }
+});
+
+function sendTestEmail(to) {
+    var mailOptions = {
+        from: '"Walla API" <judy@wallasquad.com>',
+        to,
+        subject: 'Walla API',
+        html: 'Hello! This is an email from Walla. This is an email from Walla. This is an email from Walla. Thanks, Bye!'
+    };
+
+    transporter2.sendMail(mailOptions, function (error, info) {
+        if (error) {
+            return console.log(error);
+        }
+        console.log('Message sent: ', info);
+    });
+}
 
 function sendTokenViaEmail(token, email, name, auth) {
     // TODO(anesu): Find a better a way of doing this
@@ -57,7 +88,7 @@ function sendVerificationEmail(email, uid, domain, res){
     if(!emailverificationtemplate){
         setTimeout(() => sendVerificationEmail(email, uid), 3000);
     }else{
-        var hash = TokenGenerator.generate();
+        var hash = tokenManager.TokenGenerator.generate();
         databaseref.child('schools').child(domain).child('users').child(uid).once('value').then(function(snapshot){
             var user = snapshot.val();
             if(user){
@@ -86,7 +117,7 @@ function sendVerificationEmail(email, uid, domain, res){
             });
 
             }else{
-                res.status(REQUESTNOTFOUND).send('user not found');
+                res.status(result.requestnotfound).send('user not found');
             }
         });
 
@@ -96,4 +127,5 @@ function sendVerificationEmail(email, uid, domain, res){
 module.exports = {
     sendTokenViaEmail: sendTokenViaEmail,
     sendVerificationEmail: sendVerificationEmail,
+    sendTestEmail: sendTestEmail,
 }
