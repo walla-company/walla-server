@@ -168,58 +168,66 @@ app.post('/api/add_activity', function (req, res) {
 
     reply[host] = "going";
 
-    var activity = {
-        title: title,
-        start_time: start_time * 1.0,
-        end_time: end_time * 1.0,
-        location: {
-            name: location_name,
-            address: location_address,
-            lat: location_lat * 1.0,
-            long: location_long * 1.0
-        },
-        public: activity_public,
-        can_others_invite: can_others_invite,
-        interests: interests,
-        host: host,
-        details: details,
-        host_group: host_group,
-        host_group_name: host_group_name,
-        host_group_short_name: host_group_short_name,
-        invited_users: invited_users_dic,
-        invited_groups: invited_groups_dic,
-        replies: reply,
-        deleted: false
-    };
+    databaseref.child('schools/' + school_identifier + '/users/' + host + '/verified').once('value')
+    .then(verified => {
+        if (!verified) {
+            res.status(result.requestbad).send('User not verified');
+            return;
+        }
 
-    var newActivityRef = databaseref.child('schools/' + school_identifier + '/activities').push(activity);
-    var auid = newActivityRef.key;
+        var activity = {
+            title: title,
+            start_time: start_time * 1.0,
+            end_time: end_time * 1.0,
+            location: {
+                name: location_name,
+                address: location_address,
+                lat: location_lat * 1.0,
+                long: location_long * 1.0
+            },
+            public: activity_public,
+            can_others_invite: can_others_invite,
+            interests: interests,
+            host: host,
+            details: details,
+            host_group: host_group,
+            host_group_name: host_group_name,
+            host_group_short_name: host_group_short_name,
+            invited_users: invited_users_dic,
+            invited_groups: invited_groups_dic,
+            replies: reply,
+            deleted: false
+        };
 
-    newActivityRef.child('activity_id').set(auid);
+        var newActivityRef = databaseref.child('schools/' + school_identifier + '/activities').push(activity);
+        var auid = newActivityRef.key;
 
-    if (host_group != "") {
-        databaseref.child('schools/' + school_identifier + '/groups/' + host_group + '/activities/' + auid).set(current_time);
-    }
+        newActivityRef.child('activity_id').set(auid);
 
-    databaseref.child('schools/' + school_identifier + '/users/' + host + '/activities/' + auid).set(current_time);
+        if (host_group != "") {
+            databaseref.child('schools/' + school_identifier + '/groups/' + host_group + '/activities/' + auid).set(current_time);
+        }
 
-    databaseref.child('schools/' + school_identifier + '/users/' + host + '/calendar/' + auid).set(current_time);
+        databaseref.child('schools/' + school_identifier + '/users/' + host + '/activities/' + auid).set(current_time);
 
-    /*
-    console.log('invited_users: ' + invited_users);
-    console.log('invited_groups: ' + invited_groups);
+        databaseref.child('schools/' + school_identifier + '/users/' + host + '/calendar/' + auid).set(current_time);
 
-    invited_users.forEach( function(uid) {
-      inviteUser(host, uid, school_identifier, auid, title);
+        /*
+        console.log('invited_users: ' + invited_users);
+        console.log('invited_groups: ' + invited_groups);
+
+        invited_users.forEach( function(uid) {
+        inviteUser(host, uid, school_identifier, auid, title);
+        });
+
+        invited_groups.forEach( function(guid) {
+        inviteGroup(guid, school_identifier, auid, title);
+        });
+        */
+
+        pointsManager.addPointsToUser('CreatedActivity', school_identifier, host, 5, 'User created activity id ' + auid, auid);
+        res.status(result.requestsuccessful).send('activity posted: ' + activity['location']['lat']);
     });
-
-    invited_groups.forEach( function(guid) {
-      inviteGroup(guid, school_identifier, auid, title);
-    });
-    */
-
-    pointsManager.addPointsToUser('CreatedActivity', school_identifier, host, 5, 'User created activity id ' + auid, auid);
-    res.status(result.requestsuccessful).send('activity posted: ' + activity['location']['lat']);
 });
 
 function getRandomInt(min, max) {
