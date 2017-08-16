@@ -169,8 +169,8 @@ app.post('/api/add_activity', function (req, res) {
     reply[host] = "going";
 
     databaseref.child('schools/' + school_identifier + '/users/' + host + '/verified').once('value')
-    .then(verified => {
-        if (!verified) {
+    .then(snapshot => {
+        if (!snapshot.val()) {
             res.status(result.requestbad).send('User not verified');
             return;
         }
