@@ -172,9 +172,11 @@ app.post('/api/add_activity', function (req, res) {
     .then(snapshot => {
         console.log('verified', snapshot, snapshot.val());
         if (!snapshot.val()) {
+            console.log('user not verified');
             res.status(result.requestbad).send('User not verified');
             return;
         }
+        console.log('adding activity');
 
         var activity = {
             title: title,
