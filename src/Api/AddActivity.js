@@ -170,6 +170,7 @@ app.post('/api/add_activity', function (req, res) {
 
     databaseref.child('schools/' + school_identifier + '/users/' + host + '/verified').once('value')
     .then(snapshot => {
+        console.log('verified', snapshot, snapshot.val());
         if (!snapshot.val()) {
             res.status(result.requestbad).send('User not verified');
             return;
@@ -199,7 +200,7 @@ app.post('/api/add_activity', function (req, res) {
             deleted: false
         };
 
-        var newActivityRef = databaseref.child('schools/' + school_identifier + '/activities').push(activity);
+        var newActivityRef = databaseref.child('schools/' +  + '/activities').push(activity);
         var auid = newActivityRef.key;
 
         newActivityRef.child('activity_id').set(auid);
@@ -216,7 +217,7 @@ app.post('/api/add_activity', function (req, res) {
         console.log('invited_users: ' + invited_users);
         console.log('invited_groups: ' + invited_groups);
 
-        invited_users.forEach( function(uid) {
+        invited_users.forEach( function(uid) {school_identifier
         inviteUser(host, uid, school_identifier, auid, title);
         });
 
