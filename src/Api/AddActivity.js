@@ -170,13 +170,13 @@ app.post('/api/add_activity', function (req, res) {
 
     databaseref.child('schools/' + school_identifier + '/users/' + host + '/verified').once('value')
     .then(snapshot => {
-        console.log('verified', snapshot, snapshot.val());
-        if (!snapshot.val()) {
-            console.log('user not verified');
-            res.status(result.requestbad).send('User not verified');
-            return;
-        }
-        console.log('adding activity');
+        // console.log('verified', snapshot, snapshot.val());
+        // if (!snapshot.val()) {
+        //     console.log('user not verified');
+        //     res.status(result.requestbad).send('User not verified');
+        //     return;
+        // }
+        // console.log('adding activity');
 
         var activity = {
             title: title,
