@@ -59,6 +59,12 @@ require('./Api/UpdateUserHometown');
 require('./Api/UpdateUserDescription');
 require('./Api/UpdateUserProfileImageUrl');
 require('./Api/UpdateUserLastLogon');
+require('./Api/UpdateUserGoal1');
+require('./Api/UpdateUserGoal2');
+require('./Api/UpdateUserGoal3');
+require('./Api/UpdateUserSignatureEmoji');
+require('./Api/UpdateUserReasonSchool');
+require('./Api/UpdateUserWannaMeet');
 require('./Api/IsUserIntroComplete');
 require('./Api/isUserSuspended');
 

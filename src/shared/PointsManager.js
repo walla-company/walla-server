@@ -74,6 +74,12 @@ function addProfileCompletionPointsToUser(school_identifier, user_id) {
         if (!user.graduation_year) return;
         if (!user.academic_level) return;
         if (!user.description) return;
+        if (!user.goal1) return;
+        if (!user.goal2) return;
+        if (!user.goal3) return;
+        if (!user.wanna_meet) return;
+        if (!user.reason_school) return;
+        if (!user.signature_emoji) return;
         if (!Object.keys(user.interests).length) return;
 
         addPointsToUser('ProfileCompleted', school_identifier, user_id, 10, 'User completed profile');
