@@ -168,15 +168,15 @@ app.post('/api/add_activity', function (req, res) {
 
     reply[host] = "going";
 
-    databaseref.child('schools/' + school_identifier + '/users/' + host + '/verified').once('value')
-    .then(snapshot => {
+    // databaseref.child('schools/' + school_identifier + '/users/' + host + '/verified').once('value')
+    // .then(snapshot => {
         // console.log('verified', snapshot, snapshot.val());
         // if (!snapshot.val()) {
         //     console.log('user not verified');
         //     res.status(result.requestbad).send('User not verified');
         //     return;
         // }
-        // console.log('adding activity');
+        console.log('adding activity');
 
         var activity = {
             title: title,
@@ -230,7 +230,7 @@ app.post('/api/add_activity', function (req, res) {
 
         pointsManager.addPointsToUser('CreatedActivity', school_identifier, host, 5, 'User created activity id ' + auid, auid);
         res.status(result.requestsuccessful).send('activity posted: ' + activity['location']['lat']);
-    });
+    // });
 });
 
 function getRandomInt(min, max) {
