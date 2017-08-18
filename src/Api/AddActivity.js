@@ -202,7 +202,7 @@ app.post('/api/add_activity', function (req, res) {
             deleted: false
         };
 
-        var newActivityRef = databaseref.child('schools/' +  + '/activities').push(activity);
+        var newActivityRef = databaseref.child('schools/' + school_identifier + '/activities').push(activity);
         var auid = newActivityRef.key;
 
         newActivityRef.child('activity_id').set(auid);
