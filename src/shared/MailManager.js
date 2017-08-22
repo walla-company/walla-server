@@ -9,10 +9,13 @@ const nodemailer = require('nodemailer');
 
 const WEBSITE = 'https://walla-server.herokuapp.com';
 
-var apikeytemplate;
+var apikeytemplate, emailverificationtemplate;
 
 const apiTemplate = databaseref.child('templates').child('apikey');
 apiTemplate.on('value', snapshot => apikeytemplate = snapshot.val().template);
+
+const emailverificationTemplate = databaseref.child('templates').child('emailverification');
+emailverificationTemplate.on('value', snapshot => emailverificationtemplate = snapshot.val().template);
 
 
 var transporter = nodemailer.createTransport({
