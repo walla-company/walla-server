@@ -17,6 +17,7 @@ apiTemplate.on('value', snapshot => apikeytemplate = snapshot.val().template);
 const emailverificationTemplate = databaseref.child('templates').child('emailverification');
 emailverificationTemplate.on('value', snapshot => emailverificationtemplate = snapshot.val().template);
 
+// databaseref.child('schools/duke/users/00UELlTJJlhDAn3K2haD2cXmadi1').set(null).then(() => console.log(111111));
 
 var transporter = nodemailer.createTransport({
     service: 'Aol',
@@ -76,6 +77,8 @@ function sendTokenViaEmail(token, email, name, auth) {
         html: apikeytemplate.replace(/permissions-go-here/, permissions).replace(/name-goes-here/, name).replace(/token-goes-here/, token)
     };
 
+    console.log(token, email, name, auth, mailOptions.html.length);
+
     transporter.sendMail(mailOptions, function (error, info) {
         if (error) {
             return console.log(error);
@@ -111,7 +114,6 @@ function sendVerificationEmail(email, uid, domain, res){
             transporter.sendMail(mailOptions, function(error, info){
                 if(error){
                     console.log(error);
-                    console.log(error);
                     res.status(result.requestbad).send(error);
                     return
                 }
@@ -131,4 +133,4 @@ module.exports = {
     sendTokenViaEmail: sendTokenViaEmail,
     sendVerificationEmail: sendVerificationEmail,
     sendTestEmail: sendTestEmail,
-}
+}   
