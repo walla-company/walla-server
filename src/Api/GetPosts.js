@@ -84,7 +84,7 @@ function sortAndSendActivities(activities, res) {
 }
 
 function compareActivities(a1, a2) {
-    return a2['start_time'] - a1['start_time'];
+    return a1['start_time'] - a2['start_time'];
 }
 
 function userCanSeeEvent(uid, auid, school_identifier, res, activity) {
@@ -130,7 +130,7 @@ function userCanSeeEvent(uid, auid, school_identifier, res, activity) {
     });
 }
 
-function userCanSeeFeedEvent (uid, school_identifier, res, activities, all_activities, current_index, keys) {
+function userCanSeeFeedEvent(uid, school_identifier, res, activities, all_activities, current_index, keys) {
     var key = keys[current_index];
     if (!key || (current_index == all_activities.length)) {
         sortAndSendActivities(activities, res);
