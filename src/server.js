@@ -65,6 +65,7 @@ require('./Api/UpdateUserGoal3');
 require('./Api/UpdateUserSignatureEmoji');
 require('./Api/UpdateUserReasonSchool');
 require('./Api/UpdateUserWannaMeet');
+require('./Api/UpdateUserProfile');
 require('./Api/IsUserIntroComplete');
 require('./Api/isUserSuspended');
 

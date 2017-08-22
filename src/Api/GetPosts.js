@@ -30,6 +30,13 @@ app.get('/api/get_activities', function (req, res) {
     const timequery = (moment().utcOffset("-04:00").startOf('day') * 1.0) / 1000;
     tokenManager.incrementTokenCalls(token);
 
+    // return databaseref.child('schools/' + school_identifier + '/activities/').once('value').then(snap => {
+    //     require('fs').writeFileSync(require('path').join(__dirname, '../activitiesduke.json'), JSON.stringify(snap.val()), {
+    //         encoding: 'UTF-8'
+    //     });
+    //     res.send(200);
+    // });
+
     databaseref.child('schools/' + school_identifier + '/activities/').orderByChild('start_time').startAt(timequery)
         .once('value').then(function (snapshot) {
             if (snapshot.val()) {

@@ -176,7 +176,6 @@ app.post('/api/add_activity', function (req, res) {
         //     res.status(result.requestbad).send('User not verified');
         //     return;
         // }
-        console.log('adding activity');
 
         var activity = {
             title: title,
