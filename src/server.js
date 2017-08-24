@@ -80,6 +80,17 @@ require('./Api/JoinGroup');
 require('./Api/LeaveGroup');
 
 /**
+ * Web Console
+ */
+
+require('./Api/GetToken');
+require('./Api/GetAllActivities');
+require('./Api/GetActivitiesAnalytics');
+require('./Api/GetUsersAnalytics');
+require('./Api/GetDashboardData');
+require('./Api/UpdateUserSuspension');
+
+/**
  * Discover
  */
 
