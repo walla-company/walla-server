@@ -6,7 +6,7 @@ const authentication = require('../shared/Authentication');
 const result = require('../shared/RequestResult');
 const tokenManager = require('../shared/TokenManager');
 const fs = require('fs');
-const path = require('fs');
+const path = require('path');
 
 app.get('/welcome', function(req, res){
     console.log(path.join(__dirname, '../../html/emailverification.html'));
